@@ -1,61 +1,72 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Yarn } from '@/lib/types'
+import { Yarn, YarnWeight, YarnSearchResult, catalogYarnToYarn } from '@/lib/types'
 import { YarnGrid } from '@/app/components/yarns/YarnGrid'
 import { Card } from '@/app/components/ui/Card'
 import { Button } from '@/app/components/ui/Button'
+
+const WEIGHT_OPTIONS: { label: string; value: YarnWeight | 'all' }[] = [
+  { label: 'All Weights', value: 'all' },
+  { label: 'Lace', value: 'lace' },
+  { label: 'Fingering', value: 'fingering' },
+  { label: 'Sport', value: 'sport' },
+  { label: 'DK', value: 'dk' },
+  { label: 'Worsted', value: 'worsted' },
+  { label: 'Aran', value: 'aran' },
+  { label: 'Bulky', value: 'bulky' },
+  { label: 'Super Bulky', value: 'super-bulky' },
+  { label: 'Jumbo', value: 'jumbo' },
+]
 
 export default function YarnsPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [yarns, setYarns] = useState<Yarn[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [total, setTotal] = useState(0)
+  const [weightFilter, setWeightFilter] = useState<YarnWeight | 'all'>('all')
+  const [sort, setSort] = useState<string>('rating')
 
   useEffect(() => {
     fetchYarns()
-  }, [])
+  }, [page, weightFilter, sort])
 
-  const fetchYarns = async (query: string = '') => {
+  const fetchYarns = async (query?: string) => {
     setLoading(true)
     setError(null)
     try {
       const params = new URLSearchParams()
-      if (query) params.set('query', query)
+      const q = query !== undefined ? query : searchQuery
+      if (q) params.set('query', q)
+      if (weightFilter !== 'all') params.set('weight', weightFilter)
+      params.set('sort', sort)
+      params.set('page', page.toString())
       params.set('page_size', '40')
+      params.set('discontinued', 'false')
 
-      const response = await fetch(`/api/ravelry/yarns?${params.toString()}`)
+      const response = await fetch(`/api/yarns?${params.toString()}`)
 
       if (!response.ok) {
-        throw new Error('Failed to fetch yarns from Ravelry')
+        throw new Error('Failed to fetch yarns')
       }
 
-      const data = await response.json()
-
-      // Transform Ravelry yarn data to our Yarn type
-      const transformedYarns: Yarn[] = data.yarns?.map((ravelryYarn: any) => ({
-        id: ravelryYarn.id?.toString() || '',
-        brand: ravelryYarn.yarn_company_name || 'Unknown Brand',
-        name: ravelryYarn.name || 'Unknown Yarn',
-        weight: mapRavelryWeight(ravelryYarn.yarn_weight?.name),
-        fiberContent: ravelryYarn.yarn_fibers?.map((f: any) => f.fiber_type?.name).join(', ') || 'Unknown',
-        yardage: ravelryYarn.yardage || 0,
-        gramsPerSkein: ravelryYarn.grams || 0,
-        price: undefined, // Ravelry doesn't provide pricing
-        imageUrl: ravelryYarn.first_photo?.small_url || undefined,
-        colors: [], // Ravelry doesn't provide color data in search results
-      })) || []
-
-      setYarns(transformedYarns)
+      const data: YarnSearchResult = await response.json()
+      setYarns(data.yarns.map(catalogYarnToYarn))
+      setTotalPages(data.totalPages)
+      setTotal(data.total)
     } catch (err) {
       console.error('Error fetching yarns:', err)
-      setError('Failed to load yarns from Ravelry. Please try again.')
+      setError('Failed to load yarns. Please try again.')
     } finally {
       setLoading(false)
     }
   }
 
   const handleSearch = () => {
+    setPage(1)
     fetchYarns(searchQuery)
   }
 
@@ -79,12 +90,12 @@ export default function YarnsPage() {
           ravelry_yarn_id: yarnId,
           brand: yarn.brand,
           name: yarn.name,
-          colorway: 'Default', // User can edit later
+          colorway: 'Default',
           weight: yarn.weight,
           fiber_content: yarn.fiberContent,
           yardage: yarn.yardage,
           grams_per_skein: yarn.gramsPerSkein,
-          skeins: 1, // Default to 1 skein
+          skeins: 1,
           image_url: yarn.imageUrl,
         }),
       })
@@ -93,7 +104,7 @@ export default function YarnsPage() {
         throw new Error('Failed to add yarn to stash')
       }
 
-      alert(`✅ ${yarn.brand} ${yarn.name} added to your stash!`)
+      alert(`${yarn.brand} ${yarn.name} added to your stash!`)
     } catch (error) {
       console.error('Error adding to stash:', error)
       alert('Failed to add yarn to stash. Please try again.')
@@ -109,7 +120,7 @@ export default function YarnsPage() {
             Explore Yarns
           </h1>
           <p className="text-foreground/70">
-            Browse thousands of yarns from the Ravelry database
+            Browse thousands of yarns in the catalog
           </p>
         </div>
 
@@ -117,7 +128,7 @@ export default function YarnsPage() {
         <div className="mb-6 flex gap-2">
           <input
             type="text"
-            placeholder="Search by brand or yarn name..."
+            placeholder="Search by brand, yarn name, or fiber..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -128,52 +139,88 @@ export default function YarnsPage() {
           </Button>
         </div>
 
-        {/* Error Message */}
+        {/* Weight Filter */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          {WEIGHT_OPTIONS.map(({ label, value }) => (
+            <Button
+              key={value}
+              variant={weightFilter === value ? 'primary' : 'secondary'}
+              size="sm"
+              onClick={() => { setWeightFilter(value); setPage(1) }}
+            >
+              {label}
+            </Button>
+          ))}
+        </div>
+
+        {/* Sort + Result count */}
+        <div className="flex justify-between items-center mb-6">
+          <p className="text-sm text-foreground/60">
+            {total.toLocaleString()} yarns found
+          </p>
+          <select
+            value={sort}
+            onChange={(e) => { setSort(e.target.value); setPage(1) }}
+            className="px-3 py-1.5 rounded border border-foreground/20 bg-background text-foreground text-sm"
+          >
+            <option value="rating">Highest Rated</option>
+            <option value="name">Name A-Z</option>
+            <option value="company">Brand A-Z</option>
+            <option value="newest">Recently Added</option>
+          </select>
+        </div>
+
+        {/* Error */}
         {error && (
           <Card className="p-4 mb-8 bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800">
             <div className="flex items-start gap-3">
-              <span className="text-2xl">⚠️</span>
-              <div>
-                <p className="text-sm text-foreground/90">{error}</p>
-              </div>
+              <span className="text-2xl">!</span>
+              <p className="text-sm text-foreground/90">{error}</p>
             </div>
           </Card>
         )}
 
-        {/* Loading State */}
+        {/* Loading */}
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16">
-            <div className="text-6xl mb-4 animate-bounce">🧶</div>
-            <p className="text-foreground/70">Loading yarns from Ravelry...</p>
+            <p className="text-foreground/70">Loading yarns...</p>
           </div>
         ) : (
-          /* Yarns Grid */
-          <YarnGrid
-            yarns={yarns}
-            showAddButton={true}
-            onAdd={handleAddToStash}
-            emptyMessage="No yarns found. Try a different search!"
-          />
+          <>
+            <YarnGrid
+              yarns={yarns}
+              showAddButton={true}
+              onAdd={handleAddToStash}
+              emptyMessage="No yarns found. Try a different search!"
+            />
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex justify-center items-center gap-4 mt-8">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                >
+                  Previous
+                </Button>
+                <span className="text-sm text-foreground/70">
+                  Page {page} of {totalPages}
+                </span>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                >
+                  Next
+                </Button>
+              </div>
+            )}
+          </>
         )}
       </main>
     </div>
   )
-}
-
-// Helper function to map Ravelry weight names to our YarnWeight type
-function mapRavelryWeight(ravelryWeight: string | undefined): any {
-  if (!ravelryWeight) return 'worsted'
-
-  const weight = ravelryWeight.toLowerCase()
-  if (weight.includes('lace')) return 'lace'
-  if (weight.includes('fingering') || weight.includes('sock')) return 'fingering'
-  if (weight.includes('sport') || weight.includes('baby')) return 'sport'
-  if (weight.includes('dk') || weight.includes('light')) return 'dk'
-  if (weight.includes('worsted') || weight.includes('afghan')) return 'worsted'
-  if (weight.includes('aran')) return 'aran'
-  if (weight.includes('bulky') || weight.includes('chunky')) return 'bulky'
-  if (weight.includes('super bulky')) return 'super-bulky'
-  if (weight.includes('jumbo')) return 'jumbo'
-
-  return 'worsted' // default
 }

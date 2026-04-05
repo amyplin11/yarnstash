@@ -4,16 +4,17 @@ import { createServerClient } from '@/lib/supabase/server'
 // PUT - Update stash yarn
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const body = await request.json()
     const supabase = createServerClient()
 
     const { data, error } = await supabase
       .from('stash_yarns')
       .update(body)
-      .eq('id', params.id)
+      .eq('id', id)
       .select()
       .single()
 
@@ -35,9 +36,10 @@ export async function PUT(
 // DELETE - Remove yarn from stash
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const supabase = createServerClient()
 
     // Get the current user
@@ -50,7 +52,7 @@ export async function DELETE(
     const { error } = await supabase
       .from('stash_yarns')
       .delete()
-      .eq('id', params.id)
+      .eq('id', id)
       .eq('user_id', user.id) // Ensure user can only delete their own yarns
 
     if (error) {
