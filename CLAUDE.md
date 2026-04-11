@@ -43,7 +43,7 @@ Migrations are in `supabase/migrations/` (numbered sequentially).
 - `/api/stash/[id]` — Single stash yarn
 - `/api/patterns` — User's patterns
 - `/api/patterns/upload` — PDF upload → Claude API extracts structured pattern data → stores in Supabase
-- `/api/ravelry/yarns`, `/api/ravelry/patterns` — Proxy to Ravelry API
+- `/api/patterns/upload/extract` — Full pattern extraction for a selected size (phase 2 of upload)
 
 ### Context providers
 
@@ -81,7 +81,7 @@ Required in `.env.local` (see `.env.example` for the template):
 - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` — Supabase client
 - `SUPABASE_SERVICE_ROLE_KEY` — Admin access for import scripts
 - `ANTHROPIC_API_KEY` — Pattern PDF extraction
-- `RAVELRY_USERNAME`, `RAVELRY_PASSWORD` — Ravelry API (Basic Auth)
+- `RAVELRY_USERNAME`, `RAVELRY_PASSWORD` — Only needed for the yarn import script (not required at runtime)
 
 ### Path alias
 

@@ -9,7 +9,6 @@ import { Button } from '@/app/components/ui/Button'
 const navItems = [
   { name: 'Queue', path: '/queue', icon: '📋' },
   { name: 'Patterns', path: '/patterns', icon: '📄' },
-  { name: 'Explore', path: '/explore', icon: '🔍' },
   { name: 'Yarns', path: '/yarns', icon: '🧶' },
   { name: 'Stash', path: '/stash', icon: '📦' },
 ]
