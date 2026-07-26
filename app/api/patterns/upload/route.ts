@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 
+// `claude-sonnet-4-20250514` was retired on 2026-06-15 and now 404s with
+// "model: claude-sonnet-4-20250514", which broke upload outright. Sonnet 5 is
+// the documented successor for that tier — swap this constant to move tiers
+// (e.g. 'claude-opus-5').
+const SIZE_DETECTION_MODEL = 'claude-sonnet-5'
+
 // Phase 1: Upload PDF to storage + extract available sizes via a lightweight Claude call
 export async function POST(request: NextRequest) {
   try {
@@ -69,11 +75,30 @@ async function extractSizesFromPDF(base64PDF: string): Promise<string[]> {
       'Content-Type': 'application/json',
       'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
-      'anthropic-beta': 'pdfs-2024-09-25',
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
+      model: SIZE_DETECTION_MODEL,
       max_tokens: 1024,
+      // Sonnet 5 runs adaptive thinking whenever `thinking` is omitted, and
+      // thinking shares the max_tokens budget — the whole 1024 could be spent
+      // before any JSON was emitted. This is a cheap lookup, so keep it off.
+      thinking: { type: 'disabled' },
+      // Replaces the old assistant prefill ({ role: 'assistant', content: '{' }),
+      // which returns 400 on current models. The schema now guarantees the
+      // response parses into this shape.
+      output_config: {
+        format: {
+          type: 'json_schema',
+          schema: {
+            type: 'object',
+            properties: {
+              sizes: { type: 'array', items: { type: 'string' } },
+            },
+            required: ['sizes'],
+            additionalProperties: false,
+          },
+        },
+      },
       system: 'You MUST respond with ONLY valid JSON. No prose, no markdown, no code fences.',
       messages: [
         {
@@ -107,10 +132,6 @@ Return ONLY the JSON object.`,
             },
           ],
         },
-        {
-          role: 'assistant',
-          content: '{',
-        },
       ],
     }),
   })
@@ -123,15 +144,18 @@ Return ONLY the JSON object.`,
   }
 
   const data = await response.json()
-  const responseText = data.content[0]?.type === 'text' ? data.content[0].text : ''
+  // Find the text block by type rather than indexing content[0]: when thinking
+  // is on, the first block is a thinking block, not the answer.
+  const responseText: string =
+    data.content?.find((block: { type: string }) => block.type === 'text')?.text ?? ''
 
   try {
-    const parsed = JSON.parse('{' + responseText)
+    const parsed = JSON.parse(responseText)
     const sizes = Array.isArray(parsed.sizes) ? parsed.sizes : []
     console.log('Extracted sizes:', sizes)
     return sizes
   } catch {
-    console.error('Failed to parse sizes response:', '{' + responseText)
+    console.error('Failed to parse sizes response:', responseText)
     return []
   }
 }

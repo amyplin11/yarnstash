@@ -2,6 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
 import { ExtractedPatternData } from '@/lib/types/pattern'
 
+// `claude-sonnet-4-20250514` was retired on 2026-06-15 and now 404s, which
+// broke extraction outright. Sonnet 5 is the documented successor for that
+// tier — swap this constant to move tiers (e.g. 'claude-opus-5').
+const EXTRACTION_MODEL = 'claude-sonnet-5'
+
+// Sonnet 5 allows up to 128k output tokens, and thinking is disabled below, so
+// the whole budget goes to the pattern JSON. Sonnet 5 also tokenizes roughly
+// 30% higher than Sonnet 4 for the same text, so the previous 64k cap would
+// truncate more often than it used to.
+const MAX_OUTPUT_TOKENS = 96000
+
 // Phase 2: Full extraction with the user's selected size
 export async function POST(request: NextRequest) {
   try {
@@ -391,11 +402,14 @@ async function extractPatternFromPDF(base64PDF: string, selectedSize: string | n
       'Content-Type': 'application/json',
       'x-api-key': apiKey,
       'anthropic-version': '2023-06-01',
-      'anthropic-beta': 'pdfs-2024-09-25,output-128k-2025-02-19',
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 64000,
+      model: EXTRACTION_MODEL,
+      max_tokens: MAX_OUTPUT_TOKENS,
+      // Thinking shares the max_tokens budget, and Sonnet 5 turns it on
+      // whenever `thinking` is omitted. Keep it off so the full budget goes to
+      // the extracted JSON rather than to reasoning we never read.
+      thinking: { type: 'disabled' },
       system: 'You are a knitting pattern extraction assistant. You MUST respond with ONLY valid JSON. No prose, no markdown, no code fences — just the raw JSON object starting with { and ending with }.',
       messages: [
         {
@@ -415,10 +429,6 @@ async function extractPatternFromPDF(base64PDF: string, selectedSize: string | n
             },
           ],
         },
-        {
-          role: 'assistant',
-          content: '{',
-        },
       ],
     }),
   })
@@ -431,7 +441,10 @@ async function extractPatternFromPDF(base64PDF: string, selectedSize: string | n
   }
 
   const data = await response.json()
-  const responseText = data.content[0]?.type === 'text' ? data.content[0].text : ''
+  // Find the text block by type rather than indexing content[0]: when thinking
+  // is on, the first block is a thinking block, not the answer.
+  const responseText: string =
+    data.content?.find((block: { type: string }) => block.type === 'text')?.text ?? ''
   const stopReason = data.stop_reason
 
   if (!responseText) {
@@ -443,13 +456,20 @@ async function extractPatternFromPDF(base64PDF: string, selectedSize: string | n
   }
 
   try {
-    let jsonText = '{' + responseText
+    let jsonText = responseText
 
     if (jsonText.includes('```')) {
       jsonText = jsonText.replace(/```(?:json)?\n?/g, '').replace(/\n?```/g, '')
     }
 
     jsonText = jsonText.trim()
+
+    // The prefill that used to guarantee a leading '{' is gone (it 400s on
+    // current models), so drop anything the model emits ahead of the object.
+    const firstBrace = jsonText.indexOf('{')
+    if (firstBrace > 0) {
+      jsonText = jsonText.slice(firstBrace)
+    }
 
     // If truncated, try to fix by closing open braces/brackets
     if (stopReason === 'max_tokens') {
@@ -502,8 +522,8 @@ async function extractPatternFromPDF(base64PDF: string, selectedSize: string | n
     return parsedData
   } catch (error) {
     console.error('Failed to parse Claude response:', error)
-    console.error('Response start:', ('{' + responseText).substring(0, 500))
-    console.error('Response end:', ('{' + responseText).slice(-300))
+    console.error('Response start:', responseText.substring(0, 500))
+    console.error('Response end:', responseText.slice(-300))
     throw new Error('Failed to parse extracted pattern data — Claude may have returned invalid JSON')
   }
 }
