@@ -15,6 +15,17 @@ YarnStash is a knitting project manager built with Next.js 16 (App Router), Supa
 - `npm run import:yarns` — Import yarns from Ravelry API into Supabase
 - `npm run import:yarns:resume` — Resume a previously interrupted import
 
+### Database (Supabase CLI)
+
+The CLI is pinned as a dev dependency. Run `npx supabase login` and `npm run db:link` once per checkout, then:
+
+- `npm run db:pull` — Write a migration from the live schema (**do this first** — see the warning below)
+- `npm run db:push` — Apply pending migrations to the hosted project
+- `npm run db:diff -- <name>` — Generate a migration from dashboard changes
+- `npm run db:migrations` — Compare applied migrations, local vs remote
+
+⚠️ The hosted database predates migration tracking: every table exists in production but none is described in this repo, so the schema **cannot currently be recreated from source**. Run `npm run db:pull` and commit the baseline before writing new migrations. Details in `supabase/README.md`.
+
 ### Validation workflow
 
 Always run before committing: `npm run lint && npm run typecheck`. The build (`npm run build`) is the definitive check — if it passes, the code is shippable. No test framework is configured yet (Vitest is planned).
@@ -33,7 +44,7 @@ Always run before committing: `npm run lint && npm run typecheck`. The build (`n
 
 **Global (read-only for authenticated users):** `yarns`, `yarn_fibers`, `yarn_photos` — populated via the Ravelry import script. The `yarns` table has a `search_vector` tsvector column for full-text search and a `raw_data` JSONB column with the complete Ravelry API response.
 
-Migrations are in `supabase/migrations/` (numbered sequentially).
+Migrations are in `supabase/migrations/`, managed by the Supabase CLI and applied with `npm run db:push`. See `supabase/README.md` — the existing schema has not been captured as a baseline yet.
 
 ### API routes (`app/api/`)
 
@@ -112,7 +123,7 @@ Return `401` for unauthenticated, `400` for bad input, `404` for missing resourc
 
 ### Database / migrations
 
-- Migrations are numbered sequentially: `001_`, `002_`, etc.
+- Create migrations with `npx supabase migration new <name>`; the CLI prefixes a UTC timestamp (`20260726123045_name.sql`), which keeps ordering unambiguous when two people add one at once. Older files used a sequential `001_` prefix — prefer timestamps for anything new.
 - New migrations should be additive (add columns/tables, don't drop/rename existing ones in production)
 - All user-scoped tables must have RLS policies enforcing `auth.uid() = user_id`
 - Use `ON CONFLICT ... DO UPDATE` (upsert) for idempotent imports
@@ -132,4 +143,4 @@ These are documented so Claude knows the current state and can suggest or implem
 - **No CI/CD** — No GitHub Actions; lint + typecheck + build should run on PRs
 - **No Prettier** — Only ESLint; formatting is not enforced
 - **No error boundaries** — No React error boundary components for graceful crash recovery
-- **No Supabase local dev** — No `supabase/config.toml` or local Supabase instance; development runs against the hosted project
+- **Schema not captured in source** — The Supabase CLI is wired up and `supabase/config.toml` exists, but no baseline migration has been generated yet, so the hosted schema can't be recreated from the repo. Run `npm run db:pull` and commit the result. Development still runs against the hosted project; a local Postgres is available via `npx supabase start` but nothing depends on it.
