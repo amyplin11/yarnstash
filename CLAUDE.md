@@ -67,19 +67,9 @@ While a job is running, its id is persisted to `localStorage`, so reloading the 
 
 ### Pattern PDF extraction
 
-Extraction takes 30-60s, which is too long to hold an HTTP request open, so it runs as a background job:
+See `docs/pattern-upload-flow.md` for the end-to-end flow, diagrams, failure modes, and known limitations.
 
-1. `POST /api/patterns/upload` — stores the PDF in the `pattern-pdfs` bucket and makes a small Claude call to detect available sizes (structured outputs).
-2. `POST /api/patterns/upload/extract` — validates that the storage path belongs to the caller, inserts a `pattern_jobs` row, schedules the work with `after()` from `next/server`, and returns `202 { jobId }`.
-3. `lib/patterns/extract-job.ts` — runs after the response is sent. **Streams** the extraction from Claude, then decomposes `ExtractedPatternData` across `pattern_details`, `pattern_materials`, `pattern_sections`, `pattern_instructions`, and `pattern_stitch_glossary`, recording terminal status on the job row.
-4. `GET /api/patterns/jobs/[id]` — the client polls this until `succeeded`/`failed`.
-
-Notes:
-- The worker runs after the response, so `createServerClient()` (which reads `next/headers` cookies) is unusable there — it uses `createAdminClient()` and scopes by `user_id` explicitly. Ownership is enforced in the route, before the job is queued.
-- The extraction is **streamed**: a blocking request at this `max_tokens` is the shape most likely to trip an HTTP idle timeout, and the deltas provide progress.
-- A truncated extraction (`stop_reason: max_tokens`) fails the job outright rather than being silently patched into a partial pattern.
-- The model is set by `EXTRACTION_MODEL` in `lib/patterns/extract-job.ts`. Note that assistant prefill returns a 400 on current models — use structured outputs or a system-prompt instruction instead.
-- The full extraction does **not** use structured outputs: the schema exceeds the API's grammar-compilation limits (24 optional / 16 union-typed parameters). Size detection, which is small and flat, does.
+`app/api/patterns/upload/route.ts` sends uploaded PDFs to the Anthropic API (Claude Sonnet 4) for structured extraction. The response is parsed as `ExtractedPatternData` and decomposed across multiple tables (pattern_details, pattern_materials, pattern_sections, pattern_instructions, pattern_stitch_glossary).
 
 **Section content polymorphism:** Sections use a `section_type` discriminator. `written_instructions` sections store rows in the `pattern_instructions` table; other types (`chart`, `stitch_pattern`, `schematic`, `notes`) store data as JSONB in the `content` column of `pattern_sections`. The TypeScript types mirror this with a discriminated union on `section_type`.
 
