@@ -40,7 +40,9 @@ Always run before committing: `npm run lint && npm run typecheck`. The build (`n
 
 ### Database tables (Supabase)
 
-**User-scoped (RLS by `user_id`):** `stash_yarns`, `projects`, `project_yarns`, `patterns`, `pattern_details`, `pattern_materials`, `pattern_sections`, `pattern_instructions`, `pattern_stitch_glossary`, `user_pattern_progress`, `pattern_notes`
+**User-scoped (RLS by `user_id`):** `stash_yarns`, `projects`, `project_yarns`, `patterns`, `pattern_details`, `pattern_materials`, `pattern_sections`, `pattern_instructions`, `pattern_stitch_glossary`, `user_pattern_progress`, `pattern_notes`, `pattern_jobs`
+
+`pattern_jobs` is read-only to users (select policy only) — it is written by the background extraction worker via the service-role client.
 
 **Global (read-only for authenticated users):** `yarns`, `yarn_fibers`, `yarn_photos` — populated via the Ravelry import script. The `yarns` table has a `search_vector` tsvector column for full-text search and a `raw_data` JSONB column with the complete Ravelry API response.
 
@@ -53,16 +55,31 @@ Migrations are in `supabase/migrations/`, managed by the Supabase CLI and applie
 - `/api/stash` — CRUD for user's personal yarn stash (auth required)
 - `/api/stash/[id]` — Single stash yarn
 - `/api/patterns` — User's patterns
-- `/api/patterns/upload` — PDF upload → Claude API extracts structured pattern data → stores in Supabase
-- `/api/patterns/upload/extract` — Full pattern extraction for a selected size (phase 2 of upload)
+- `/api/patterns/upload` — PDF upload → store in Supabase Storage → detect available sizes (phase 1)
+- `/api/patterns/upload/extract` — Queue a full extraction for a selected size; returns `202 { jobId }` (phase 2)
+- `/api/patterns/jobs/[id]` — Poll extraction job status
 
 ### Context providers
 
-Layout wraps the app in a provider hierarchy: `AuthProvider` → `UploadProvider` → Navbar + children + `UploadStatusBar`. The upload flow uses `useUpload()` hook (from `lib/upload/UploadContext.tsx`) to manage file validation, POST to `/api/patterns/upload`, and status transitions (`idle` → `uploading` → `success`/`error`). The `UploadStatusBar` component renders fixed bottom-right feedback based on this state.
+Layout wraps the app in a provider hierarchy: `AuthProvider` → `UploadProvider` → Navbar + children + `UploadStatusBar`. The upload flow uses `useUpload()` hook (from `lib/upload/UploadContext.tsx`) to manage file validation, the two upload phases, and status transitions (`idle` → `uploading` → `selecting_size` → `extracting` → `success`/`error`). The `UploadStatusBar` component renders fixed bottom-right feedback based on this state.
+
+While a job is running, its id is persisted to `localStorage`, so reloading the page rejoins the in-flight extraction rather than orphaning it.
 
 ### Pattern PDF extraction
 
-`app/api/patterns/upload/route.ts` sends uploaded PDFs to the Anthropic API (Claude Sonnet 4) for structured extraction. The response is parsed as `ExtractedPatternData` and decomposed across multiple tables (pattern_details, pattern_materials, pattern_sections, pattern_instructions, pattern_stitch_glossary).
+Extraction takes 30-60s, which is too long to hold an HTTP request open, so it runs as a background job:
+
+1. `POST /api/patterns/upload` — stores the PDF in the `pattern-pdfs` bucket and makes a small Claude call to detect available sizes (structured outputs).
+2. `POST /api/patterns/upload/extract` — validates that the storage path belongs to the caller, inserts a `pattern_jobs` row, schedules the work with `after()` from `next/server`, and returns `202 { jobId }`.
+3. `lib/patterns/extract-job.ts` — runs after the response is sent. **Streams** the extraction from Claude, then decomposes `ExtractedPatternData` across `pattern_details`, `pattern_materials`, `pattern_sections`, `pattern_instructions`, and `pattern_stitch_glossary`, recording terminal status on the job row.
+4. `GET /api/patterns/jobs/[id]` — the client polls this until `succeeded`/`failed`.
+
+Notes:
+- The worker runs after the response, so `createServerClient()` (which reads `next/headers` cookies) is unusable there — it uses `createAdminClient()` and scopes by `user_id` explicitly. Ownership is enforced in the route, before the job is queued.
+- The extraction is **streamed**: a blocking request at this `max_tokens` is the shape most likely to trip an HTTP idle timeout, and the deltas provide progress.
+- A truncated extraction (`stop_reason: max_tokens`) fails the job outright rather than being silently patched into a partial pattern.
+- The model is set by `EXTRACTION_MODEL` in `lib/patterns/extract-job.ts`. Note that assistant prefill returns a 400 on current models — use structured outputs or a system-prompt instruction instead.
+- The full extraction does **not** use structured outputs: the schema exceeds the API's grammar-compilation limits (24 optional / 16 union-typed parameters). Size detection, which is small and flat, does.
 
 **Section content polymorphism:** Sections use a `section_type` discriminator. `written_instructions` sections store rows in the `pattern_instructions` table; other types (`chart`, `stitch_pattern`, `schematic`, `notes`) store data as JSONB in the `content` column of `pattern_sections`. The TypeScript types mirror this with a discriminated union on `section_type`.
 
