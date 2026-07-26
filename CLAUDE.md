@@ -51,6 +51,8 @@ Layout wraps the app in a provider hierarchy: `AuthProvider` → `UploadProvider
 
 ### Pattern PDF extraction
 
+See `docs/pattern-upload-flow.md` for the end-to-end flow, diagrams, failure modes, and known limitations.
+
 `app/api/patterns/upload/route.ts` sends uploaded PDFs to the Anthropic API (Claude Sonnet 4) for structured extraction. The response is parsed as `ExtractedPatternData` and decomposed across multiple tables (pattern_details, pattern_materials, pattern_sections, pattern_instructions, pattern_stitch_glossary).
 
 **Section content polymorphism:** Sections use a `section_type` discriminator. `written_instructions` sections store rows in the `pattern_instructions` table; other types (`chart`, `stitch_pattern`, `schematic`, `notes`) store data as JSONB in the `content` column of `pattern_sections`. The TypeScript types mirror this with a discriminated union on `section_type`.
