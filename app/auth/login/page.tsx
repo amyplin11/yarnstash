@@ -6,8 +6,11 @@ import { useAuth } from '@/lib/auth/AuthContext'
 import { supabase } from '@/lib/supabase/client'
 import { Card } from '@/app/components/ui/Card'
 import { Button } from '@/app/components/ui/Button'
+import { FeedbackLink } from '@/app/components/feedback/FeedbackButton'
 
 type Mode = 'signin' | 'signup' | 'forgot'
+
+const feedbackLinkStyles = 'text-teal-600 dark:text-teal-400 hover:underline'
 
 export default function LoginPage() {
   const [mode, setMode] = useState<Mode>('signin')
@@ -135,6 +138,13 @@ export default function LoginPage() {
               Back to sign in
             </button>
           </div>
+
+          <p className="mt-4 text-center text-xs text-foreground/60">
+            Reset link not arriving?{' '}
+            <FeedbackLink topic="password reset" className={feedbackLinkStyles}>
+              Send feedback
+            </FeedbackLink>
+          </p>
         </Card>
       </div>
     )
@@ -217,6 +227,13 @@ export default function LoginPage() {
               Don&apos;t have an account? Sign up
             </button>
           </div>
+
+          <p className="mt-4 text-center text-xs text-foreground/60">
+            Trouble signing in?{' '}
+            <FeedbackLink topic="sign-in problem" className={feedbackLinkStyles}>
+              Send feedback
+            </FeedbackLink>
+          </p>
         </Card>
       </div>
     )
@@ -361,6 +378,13 @@ export default function LoginPage() {
                 Already have an account? Sign in
               </button>
             </div>
+
+            <p className="mt-4 text-center text-xs text-foreground/60">
+              Trouble creating an account?{' '}
+              <FeedbackLink topic="sign-up problem" className={feedbackLinkStyles}>
+                Send feedback
+              </FeedbackLink>
+            </p>
           </Card>
         </div>
       </div>
