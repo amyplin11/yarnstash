@@ -6,44 +6,104 @@ Schema for this project is managed with the [Supabase CLI](https://supabase.com/
 supabase/
   config.toml     CLI project config (committed)
   migrations/     SQL migrations, applied in filename order (committed)
+  seed.sql        generated dev fixture, loaded on `db reset` (committed)
   .gitignore      ignores .branches/, .temp/ (contains the linked project ref)
 ```
 
-## ⚠️ Read this first: the schema is not yet captured
+## Environments
+
+| | Hosted project | Local stack |
+|---|---|---|
+| Command | `npm run db:link` | `npm run db:start` |
+| Where | Supabase cloud | Docker, on your machine |
+| Data | real catalog + real user data | `seed.sql`, ~300 yarns |
+| Resettable | no | `npm run db:reset`, seconds |
+| Cost | shared with production | free |
+
+There is **one hosted project**, and it is production. Pointing `.env.local` at
+it means developing against live data — including the pattern delete path in
+`app/api/patterns/[id]/route.ts`, which removes objects from the `pattern-pdfs`
+storage bucket with no undo. The local stack exists so that iterating on
+anything destructive does not have to happen there.
+
+A second *hosted* project was considered and deliberately not adopted: free-tier
+projects pause after about a week idle, and a second live database with no CI
+generates schema drift faster than it prevents accidents. The local stack gives
+the same Postgres 17, RLS, storage and auth for free.
+
+## ⚠️ Read this first: the schema is still not captured
 
 The hosted database has been evolving without migration files. `patterns`,
 `pattern_details`, `pattern_materials`, `pattern_sections`,
 `pattern_instructions`, `pattern_stitch_glossary`, `user_pattern_progress`,
 `pattern_notes`, `yarns`, `yarn_fibers`, `yarn_photos`, `stash_yarns`,
 `projects`, and `project_yarns` all exist in production, but **none of them are
-described anywhere in this repo** — `supabase/migrations/` was empty, and in
-fact was never tracked by git at all.
+described anywhere in this repo** — only `010_pattern_jobs.sql` is.
 
-That means the database currently cannot be recreated from source. Before
-writing any new migration, capture the existing schema as a baseline (see
-below). Until that is done, `db push` has nothing to reconcile against and
-`db diff` will report the entire schema as a change.
+That means the database cannot yet be recreated from source, and so **the local
+stack does not work yet**: `db reset` would build a database containing
+`pattern_jobs` and nothing else, and `seed.sql` would fail against it because
+`yarns` would not exist.
 
-## One-time setup
+Capturing the baseline is the one prerequisite. It needs two things only a
+human can supply — a browser login and the database password — which is why it
+is not already done:
 
 ```sh
 npx supabase login                 # opens a browser; stores a CLI access token
-npm run db:link                    # links this checkout to the hosted project
+npm run db:link                    # prompts for the database password
+npm run db:pull                    # writes supabase/migrations/<ts>_remote_schema.sql
 ```
 
-`db:link` prompts for the **database password** (Dashboard → Project Settings →
-Database). The linked project ref is written to `supabase/.temp/`, which is
-gitignored — every developer links their own checkout.
+Commit the generated migration. From that point the repo is the source of truth
+and everything below works.
 
-## Capture the existing schema (do this once, before any new migration)
+`db:link` targets the production ref by default. Override it to point a checkout
+somewhere else:
 
 ```sh
-npm run db:pull                    # writes a baseline migration from the live DB
+SUPABASE_PROJECT_REF=abcdefghijklmnop npm run db:link
 ```
 
-This generates `supabase/migrations/<timestamp>_remote_schema.sql` describing
-everything that already exists. Commit it. From then on the repo is the source
-of truth and the workflow below applies.
+The linked ref is written to `supabase/.temp/`, which is gitignored — every
+developer links their own checkout.
+
+## Local development (after the baseline exists)
+
+```sh
+npm run db:start                   # boots Postgres, auth, storage in Docker
+npm run db:reset                   # migrations, then seed.sql
+```
+
+Copy the URL and keys `db:start` prints into `.env.local` (see `.env.example`).
+`npm run db:status` reprints them. To go back to the hosted project, restore the
+hosted values; `npm run db:stop` shuts the containers down.
+
+Requires Docker to be installed and running.
+
+### Seed data
+
+`seed.sql` is generated, not hand-written. The real catalog is ~98k yarns,
+~178k fiber rows and ~275k photo rows imported from Ravelry over a slow,
+rate-limited run — far too much to carry in the repo or re-import per reset.
+
+```sh
+npm run db:seed:generate           # 25 yarns per weight (~300 total)
+npm run db:seed:generate -- --per-weight=50
+```
+
+The script samples evenly across all twelve weight categories so the weight
+filter and full-text search on `/yarns` have something to work against; a naive
+`limit 300` would return Fingering yarns only. It reads from whatever
+`.env.local` points at, so run it against the hosted project.
+
+`search_vector` is left out and repopulated by the database on insert.
+`raw_data` is written as `{}` — it is never read by the app and carrying it
+would multiply the file size. Photos are capped at two per yarn for the same
+reason.
+
+Seeding covers the global catalog only. User-scoped tables start empty; sign up
+through the app to create a local account.
 
 ## Day-to-day
 
@@ -58,6 +118,7 @@ npm run db:push
 ```sh
 npx supabase migration new add_pattern_jobs
 # edit supabase/migrations/<timestamp>_add_pattern_jobs.sql
+npm run db:reset                   # verify locally first
 npm run db:push
 ```
 
@@ -85,10 +146,5 @@ npm run db:migrations              # local vs remote, side by side
   files in this project used a sequential `010_` prefix; prefer the CLI's
   timestamps for anything new, so ordering stays unambiguous when two people
   add migrations at once.
-
-## Local Postgres (optional)
-
-`config.toml` also configures a full local Supabase stack via Docker
-(`npx supabase start`). Nothing in this project depends on it yet — development
-runs against the hosted project — but it is available if you want to test a
-migration before pushing it.
+- `npm run db:reset` only ever touches the local stack. Resetting the hosted
+  database requires an explicit `--linked`, which no script here passes.
