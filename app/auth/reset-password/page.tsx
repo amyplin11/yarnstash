@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase/client'
 import { Card } from '@/app/components/ui/Card'
 import { Button } from '@/app/components/ui/Button'
+import { FeedbackLink } from '@/app/components/feedback/FeedbackButton'
 
 // Landing page for the link sent by resetPasswordForEmail().
 //
@@ -115,6 +116,16 @@ export default function ResetPasswordPage() {
           <p className="text-foreground/70">Choose a new password</p>
         </div>
         {children}
+
+        <p className="mt-4 text-center text-xs text-foreground/60">
+          Something not working?{' '}
+          <FeedbackLink
+            topic="password reset"
+            className="text-teal-600 dark:text-teal-400 hover:underline"
+          >
+            Send feedback
+          </FeedbackLink>
+        </p>
       </Card>
     </div>
   )

@@ -5,6 +5,7 @@ import { Navbar } from "./components/navigation/Navbar";
 import { AuthProvider } from "@/lib/auth/AuthContext";
 import { UploadProvider } from "@/lib/upload/UploadContext";
 import { UploadStatusBar } from "./components/ui/UploadStatusBar";
+import { FeedbackButton } from "./components/feedback/FeedbackButton";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -36,6 +37,7 @@ export default function RootLayout({
             <Navbar />
             {children}
             <UploadStatusBar />
+            <FeedbackButton />
           </UploadProvider>
         </AuthProvider>
       </body>
