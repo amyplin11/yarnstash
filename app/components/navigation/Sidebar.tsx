@@ -21,12 +21,13 @@ import {
 } from '@/app/components/ui/icons'
 import { toggleSidebar, useHydrated, useSidebarCollapsed } from './sidebarState'
 
+// The user's own things first, then the browse-everything destinations.
 const navItems = [
-  { name: 'Studio', path: '/', icon: GridIcon, exact: true },
+  { name: 'Home', path: '/', icon: GridIcon, exact: true },
+  { name: 'My Patterns', path: '/patterns', icon: FileIcon },
+  { name: 'My Yarn Stash', path: '/stash', icon: InboxIcon },
   { name: 'Queue', path: '/queue', icon: ListIcon },
-  { name: 'Patterns', path: '/patterns', icon: FileIcon },
   { name: 'Yarns', path: '/yarns', icon: DropletIcon },
-  { name: 'Stash', path: '/stash', icon: InboxIcon },
 ]
 
 function isActivePath(pathname: string, path: string, exact?: boolean) {
@@ -43,7 +44,8 @@ function NavList({ collapsed = false, onNavigate }: { collapsed?: boolean; onNav
       {navItems.map((item) => {
         const active = isActivePath(pathname, item.path, item.exact)
         const Icon = item.icon
-        const badge = item.name === 'Queue' && queuedCount > 0 ? queuedCount : null
+        // Keyed off the route, not the label, so renaming an item can't drop the count.
+        const badge = item.path === '/queue' && queuedCount > 0 ? queuedCount : null
 
         return (
           <Link
