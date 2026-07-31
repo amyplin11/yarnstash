@@ -120,6 +120,24 @@ export function PaletteIcon(props: IconProps) {
   )
 }
 
+export function CloudUploadIcon(props: IconProps) {
+  return (
+    <Line {...props}>
+      <path d="M7 18.5a4.5 4.5 0 0 1-.85-8.92 5.5 5.5 0 0 1 10.55-1.4A4.5 4.5 0 0 1 17.3 18.5" />
+      <path d="M12 21v-8.5" />
+      <path d="M9 15.5l3-3 3 3" />
+    </Line>
+  )
+}
+
+export function CheckIcon(props: IconProps) {
+  return (
+    <Line {...props}>
+      <path d="M5 12.5l4.5 4.5L19 7.5" />
+    </Line>
+  )
+}
+
 export function PlusIcon(props: IconProps) {
   return (
     <Line {...props}>

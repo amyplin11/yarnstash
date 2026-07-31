@@ -19,7 +19,8 @@ import {
   MenuIcon,
   YarnMark,
 } from '@/app/components/ui/icons'
-import { toggleSidebar, useHydrated, useSidebarCollapsed } from './sidebarState'
+import { toggleSidebar, useSidebarCollapsed } from './sidebarState'
+import { useHydrated } from '@/app/components/ui/useHydrated'
 
 // The user's own things first, then the browse-everything destinations.
 const navItems = [

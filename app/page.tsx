@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { ProjectCard } from './components/projects/ProjectCard'
+import { TodayStamp } from './components/ui/TodayStamp'
 import { mockProjects } from '@/lib/data/mockProjects'
 import { mockStashYarns } from '@/lib/data/mockYarns'
 import {
@@ -32,12 +33,6 @@ export default function Home() {
     { value: totalYardage.toLocaleString(), label: 'Total yards', icon: RulerIcon, tint: 'bg-sand text-ink-muted' },
   ]
 
-  const today = new Date()
-  const weekday = today.toLocaleDateString('en-US', { weekday: 'long' })
-  const date = today
-    .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-    .toUpperCase()
-
   return (
     <main className="mx-auto max-w-6xl px-6 py-12 sm:px-10 lg:px-14 lg:py-16">
       {/* Hero */}
@@ -61,10 +56,7 @@ export default function Home() {
 
         {/* Date + quick add */}
         <div className="flex shrink-0 items-start gap-6 lg:flex-col lg:items-end lg:gap-5 lg:pt-2">
-          <div className="lg:text-right">
-            <p className="font-display text-3xl text-ink">{weekday}</p>
-            <p className="eyebrow mt-1 text-ink-soft">{date}</p>
-          </div>
+          <TodayStamp />
           <Link
             href="/patterns/upload"
             aria-label="Upload a pattern"

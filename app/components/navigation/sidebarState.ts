@@ -46,18 +46,3 @@ export function toggleSidebar() {
   }
   for (const listener of listeners) listener()
 }
-
-const noopSubscribe = () => () => {}
-
-/**
- * False during the server render and the hydrating pass, true afterwards. Used
- * to hold back the width transition so a stored "collapsed" snaps into place
- * instead of animating shut in front of the user on every page load.
- */
-export function useHydrated() {
-  return useSyncExternalStore(
-    noopSubscribe,
-    () => true,
-    () => false
-  )
-}

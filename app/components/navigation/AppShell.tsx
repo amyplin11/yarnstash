@@ -2,7 +2,8 @@
 
 import { usePathname } from 'next/navigation'
 import { Sidebar } from './Sidebar'
-import { useHydrated, useSidebarCollapsed } from './sidebarState'
+import { useSidebarCollapsed } from './sidebarState'
+import { useHydrated } from '@/app/components/ui/useHydrated'
 
 /**
  * Two-column app frame: a fixed sidebar rail plus the content well, whose
