@@ -16,6 +16,8 @@ export interface Pattern {
   tags?: string[]
   created_at?: Date
   updated_at?: Date
+  /** Present when the pattern list is read with its progress row embedded. */
+  progress?: UserPatternProgress | null
 }
 
 export interface PatternDetails {

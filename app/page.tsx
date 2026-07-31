@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { ProjectCard } from './components/projects/ProjectCard'
 import { mockProjects } from '@/lib/data/mockProjects'
 import { mockStashYarns } from '@/lib/data/mockYarns'
 import {
@@ -22,6 +23,7 @@ export default function Home() {
   )
 
   const upNext = mockProjects.find((p) => p.status === 'queued')
+  const currentProjects = mockProjects.filter((p) => p.status === 'in-progress')
 
   const stats = [
     { value: queuedProjects, label: 'Queued projects', icon: ClipboardIcon, tint: 'bg-terracotta-soft text-terracotta' },
@@ -93,8 +95,36 @@ export default function Home() {
         ))}
       </section>
 
+      {/* Current projects */}
+      {currentProjects.length > 0 && (
+        <section className="mt-16">
+          <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="mb-3 flex items-center gap-4 text-terracotta">
+                <span className="h-px w-10 bg-terracotta" aria-hidden="true" />
+                <span className="eyebrow">On the needles</span>
+              </p>
+              <h2 className="font-display text-4xl tracking-tight text-ink">Current Projects</h2>
+            </div>
+            <Link
+              href="/queue"
+              className="group inline-flex items-center gap-2 text-sm font-medium text-terracotta"
+            >
+              View all projects
+              <ArrowRightIcon className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {currentProjects.map((project) => (
+              <ProjectCard key={project.id} project={project} />
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Feature cards */}
-      <section className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <section className="mt-16 grid grid-cols-1 gap-6 lg:grid-cols-3">
         {/* Project queue — the anchor card */}
         <Link
           href="/queue"
