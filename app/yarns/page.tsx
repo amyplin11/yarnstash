@@ -116,7 +116,7 @@ export default function YarnsPage() {
       <main className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-foreground mb-2">
+          <h1 className="font-display text-5xl tracking-tight text-ink mb-3">
             Explore Yarns
           </h1>
           <p className="text-foreground/70">
@@ -132,7 +132,7 @@ export default function YarnsPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={handleKeyDown}
-            className="flex-1 px-4 py-3 rounded-lg border border-foreground/20 bg-background text-foreground placeholder-foreground/50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="flex-1 px-4 py-3 rounded-lg border border-foreground/20 bg-background text-foreground placeholder-foreground/50 focus:outline-none focus:ring-2 focus:ring-terracotta"
           />
           <Button onClick={handleSearch} disabled={loading}>
             {loading ? 'Searching...' : 'Search'}

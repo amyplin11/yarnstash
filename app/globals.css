@@ -1,26 +1,79 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/*
+ * YarnStash is a single warm, light theme — a paper-and-thread studio palette.
+ * Components written before the redesign carry `dark:` utilities; rebinding the
+ * variant to a `.dark` class (which nothing sets) keeps them inert instead of
+ * flipping the whole app inside out on a dark-mode machine.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* Surfaces */
+  --color-parchment: #f4f1ea;
+  --color-parchment-deep: #ebe7dc;
+  --color-surface: #ffffff;
+  --color-background: #f4f1ea;
+
+  /* Ink */
+  --color-ink: #1c1a17;
+  --color-ink-muted: #6d675e;
+  --color-ink-soft: #9b958a;
+  --color-foreground: #1c1a17;
+
+  /* Lines */
+  --color-line: #e3ded2;
+  --color-line-strong: #d5cfc0;
+
+  /* Accents */
+  --color-terracotta: #a8462c;
+  --color-terracotta-deep: #8c3721;
+  --color-terracotta-soft: #f7e4de;
+  --color-sage: #8b9a7b;
+  --color-sage-deep: #6f7e60;
+  --color-sage-soft: #e7ebe0;
+  --color-sand: #d8d0bd;
+  --color-sand-soft: #efeadd;
+  --color-honey: #96702c;
+  --color-honey-soft: #f4e8d0;
+  --color-clay: #93413c;
+  --color-clay-soft: #f2ded9;
 }
 
+/*
+ * `inline` matters here: next/font declares --font-figtree / --font-playfair on
+ * <body>, so a :root-level `--font-display: var(--font-playfair)` would resolve
+ * against an undefined variable. Inlining substitutes the reference into the
+ * utility itself, where the body-scoped variable is in scope.
+ */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-sans: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-playfair), ui-serif, Georgia, serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-parchment);
+  color: var(--color-ink);
+  font-family: var(--font-figtree), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Eyebrow labels: tracked-out small caps, usually preceded by a short rule. */
+@utility eyebrow {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+/* Faint dot grid used behind the lighter feature cards. */
+@utility texture-dots {
+  background-image: radial-gradient(var(--color-line-strong) 1px, transparent 1px);
+  background-size: 14px 14px;
+}
+
+::selection {
+  background: var(--color-terracotta-soft);
+  color: var(--color-terracotta-deep);
 }

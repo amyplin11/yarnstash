@@ -85,7 +85,7 @@ export default function PatternsPage() {
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-4xl font-bold text-foreground mb-2">
+            <h1 className="font-display text-5xl tracking-tight text-ink mb-3">
               My Patterns
             </h1>
             <p className="text-foreground/70">

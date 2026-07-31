@@ -1,118 +1,182 @@
 import Link from 'next/link'
-import { Card } from './components/ui/Card'
 import { mockProjects } from '@/lib/data/mockProjects'
 import { mockStashYarns } from '@/lib/data/mockYarns'
+import {
+  ArrowRightIcon,
+  ClipboardIcon,
+  DropletIcon,
+  PackageIcon,
+  PaletteIcon,
+  PlusIcon,
+  RulerIcon,
+  SpokesIcon,
+} from './components/ui/icons'
 
 export default function Home() {
-  // Calculate quick stats
-  const queuedProjects = mockProjects.filter(p => p.status === 'queued').length
-  const inProgressProjects = mockProjects.filter(p => p.status === 'in-progress').length
+  const queuedProjects = mockProjects.filter((p) => p.status === 'queued').length
+  const inProgressProjects = mockProjects.filter((p) => p.status === 'in-progress').length
   const totalStashSkeins = mockStashYarns.reduce((sum, yarn) => sum + yarn.skeins, 0)
   const totalYardage = mockStashYarns.reduce(
-    (sum, yarn) => sum + (yarn.yarn.yardage * yarn.skeins),
+    (sum, yarn) => sum + yarn.yarn.yardage * yarn.skeins,
     0
   )
 
-  const sections = [
-    {
-      title: 'Project Queue',
-      icon: '📋',
-      description: 'Track your project queue and works in progress',
-      href: '/queue',
-      color: 'from-blue-500 to-blue-600',
-    },
-    {
-      title: 'Explore Patterns',
-      icon: '🔍',
-      description: 'Discover new knitting patterns',
-      href: '/explore',
-      color: 'from-teal-500 to-teal-600',
-    },
-    {
-      title: 'Browse Yarns',
-      icon: '🧶',
-      description: 'Browse yarn options and find your next favorite',
-      href: '/yarns',
-      color: 'from-purple-500 to-purple-600',
-    },
-    {
-      title: 'Yarn Stash',
-      icon: '📦',
-      description: 'Manage your personal yarn collection',
-      href: '/stash',
-      color: 'from-amber-500 to-amber-600',
-    },
+  const upNext = mockProjects.find((p) => p.status === 'queued')
+
+  const stats = [
+    { value: queuedProjects, label: 'Queued projects', icon: ClipboardIcon, tint: 'bg-terracotta-soft text-terracotta' },
+    { value: inProgressProjects, label: 'In progress', icon: SpokesIcon, tint: 'bg-parchment-deep text-ink-muted' },
+    { value: totalStashSkeins, label: 'Skeins in stash', icon: PackageIcon, tint: 'bg-parchment-deep text-ink-muted' },
+    { value: totalYardage.toLocaleString(), label: 'Total yards', icon: RulerIcon, tint: 'bg-sand text-ink-muted' },
   ]
 
+  const today = new Date()
+  const weekday = today.toLocaleDateString('en-US', { weekday: 'long' })
+  const date = today
+    .toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    .toUpperCase()
+
   return (
-    <div className="min-h-screen bg-background">
-      <main className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
-        {/* Hero Section */}
-        <div className="text-center mb-16">
-          <h1 className="text-5xl font-bold text-foreground mb-4">
-            Welcome to YarnStash
+    <main className="mx-auto max-w-6xl px-6 py-12 sm:px-10 lg:px-14 lg:py-16">
+      {/* Hero */}
+      <section className="flex flex-col gap-10 lg:flex-row lg:items-start lg:justify-between">
+        <div className="max-w-2xl">
+          <p className="mb-7 flex items-center gap-4 text-terracotta">
+            <span className="h-px w-10 bg-terracotta" aria-hidden="true" />
+            <span className="eyebrow">Welcome back</span>
+          </p>
+
+          <h1 className="font-display text-[3.25rem] leading-[0.98] tracking-[-0.02em] text-ink sm:text-7xl">
+            Curate your collection with{' '}
+            <span className="italic text-sage">YarnStash.</span>
           </h1>
-          <p className="text-xl text-foreground/70 max-w-2xl mx-auto">
-            Organize your knitting projects and yarn collection in one beautiful place
+
+          <p className="mt-8 max-w-xl text-lg leading-relaxed text-ink-muted">
+            Organize your knitting projects, explore new patterns, and manage your yarn
+            inventory in one beautiful, tactile space.
           </p>
         </div>
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
-          <Card className="p-6 text-center">
-            <div className="text-3xl font-bold text-teal-600 dark:text-teal-400">
-              {queuedProjects}
-            </div>
-            <div className="text-sm text-foreground/70 mt-1">Queued Projects</div>
-          </Card>
-          <Card className="p-6 text-center">
-            <div className="text-3xl font-bold text-amber-600 dark:text-amber-400">
-              {inProgressProjects}
-            </div>
-            <div className="text-sm text-foreground/70 mt-1">In Progress</div>
-          </Card>
-          <Card className="p-6 text-center">
-            <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">
-              {totalStashSkeins}
-            </div>
-            <div className="text-sm text-foreground/70 mt-1">Skeins in Stash</div>
-          </Card>
-          <Card className="p-6 text-center">
-            <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
-              {totalYardage.toLocaleString()}
-            </div>
-            <div className="text-sm text-foreground/70 mt-1">Total Yards</div>
-          </Card>
+        {/* Date + quick add */}
+        <div className="flex shrink-0 items-start gap-6 lg:flex-col lg:items-end lg:gap-5 lg:pt-2">
+          <div className="lg:text-right">
+            <p className="font-display text-3xl text-ink">{weekday}</p>
+            <p className="eyebrow mt-1 text-ink-soft">{date}</p>
+          </div>
+          <Link
+            href="/patterns/upload"
+            aria-label="Upload a pattern"
+            className="flex h-14 w-14 items-center justify-center rounded-full bg-surface text-ink shadow-[0_1px_2px_rgba(28,26,23,0.05),0_10px_30px_-12px_rgba(28,26,23,0.3)] transition-colors hover:bg-ink hover:text-parchment"
+          >
+            <PlusIcon className="h-5 w-5" />
+          </Link>
         </div>
+      </section>
 
-        {/* Section Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {sections.map((section) => (
-            <Link key={section.href} href={section.href}>
-              <Card className="p-8 hover:scale-[1.02] transition-transform cursor-pointer h-full">
-                <div className="flex items-start gap-4">
-                  <div className={`text-5xl p-4 rounded-2xl bg-gradient-to-br ${section.color} bg-opacity-10`}>
-                    {section.icon}
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-2xl font-semibold text-foreground mb-2">
-                      {section.title}
-                    </h3>
-                    <p className="text-foreground/70">
-                      {section.description}
-                    </p>
-                  </div>
+      {/* Stat strip */}
+      <section className="mt-14 grid grid-cols-1 overflow-hidden rounded-3xl bg-surface shadow-[0_1px_2px_rgba(28,26,23,0.04),0_20px_50px_-40px_rgba(28,26,23,0.5)] sm:grid-cols-2 lg:grid-cols-4">
+        {stats.map(({ value, label, icon: Icon, tint }, i) => (
+          <div
+            key={label}
+            className={`flex items-center gap-4 px-7 py-8 ${
+              i > 0 ? 'border-line sm:border-l' : ''
+            } ${i >= 2 ? 'sm:border-t lg:border-t-0' : ''}`}
+          >
+            <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${tint}`}>
+              <Icon className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="font-display text-4xl leading-none text-ink">{value}</p>
+              <p className="eyebrow mt-2 text-ink-soft">{label}</p>
+            </div>
+          </div>
+        ))}
+      </section>
+
+      {/* Feature cards */}
+      <section className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-3">
+        {/* Project queue — the anchor card */}
+        <Link
+          href="/queue"
+          className="group relative flex flex-col justify-between overflow-hidden rounded-3xl bg-terracotta p-9 text-parchment transition-colors hover:bg-terracotta-deep lg:col-span-2"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <span className="flex h-14 w-14 items-center justify-center rounded-full bg-parchment/15">
+              <ClipboardIcon className="h-6 w-6" />
+            </span>
+            {upNext && (
+              <span className="eyebrow rounded-full bg-parchment/15 px-3.5 py-1.5">Up next</span>
+            )}
+          </div>
+
+          <div className="mt-16">
+            <h2 className="font-display text-4xl tracking-tight">Project Queue</h2>
+            <p className="mt-3 max-w-md text-parchment/75">
+              Track your project queue and works in progress, from cast-on to bind-off.
+            </p>
+
+            {upNext && (
+              <div className="mt-7 flex items-center justify-between gap-4 rounded-2xl bg-parchment/12 px-5 py-4">
+                <div className="min-w-0">
+                  <p className="eyebrow text-parchment/60">Next up</p>
+                  <p className="mt-1 truncate font-medium">{upNext.name}</p>
                 </div>
-              </Card>
-            </Link>
-          ))}
-        </div>
+                <ArrowRightIcon className="h-5 w-5 shrink-0 transition-transform group-hover:translate-x-1" />
+              </div>
+            )}
+          </div>
+        </Link>
 
-        {/* Footer Message */}
-        <div className="text-center mt-16 text-foreground/60">
-          <p>Happy knitting! 🧶✨</p>
-        </div>
-      </main>
-    </div>
+        {/* Explore patterns */}
+        <Link
+          href="/patterns"
+          className="group texture-dots relative flex flex-col justify-between overflow-hidden rounded-3xl border border-line bg-surface p-9 transition-shadow hover:shadow-[0_20px_50px_-35px_rgba(28,26,23,0.6)]"
+        >
+          <span className="flex h-14 w-14 items-center justify-center rounded-full bg-parchment-deep text-ink-muted">
+            <PaletteIcon className="h-6 w-6" />
+          </span>
+          <div className="mt-16">
+            <h2 className="font-display text-4xl leading-[1.05] tracking-tight text-ink">
+              Explore Patterns
+            </h2>
+            <p className="mt-3 text-ink-muted">Upload a PDF and let it unravel itself.</p>
+            <span className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-terracotta">
+              Browse library
+              <ArrowRightIcon className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </span>
+          </div>
+        </Link>
+
+        {/* Browse yarns */}
+        <Link
+          href="/yarns"
+          className="group flex items-center justify-between gap-6 rounded-3xl border border-line bg-surface p-8 transition-shadow hover:shadow-[0_20px_50px_-35px_rgba(28,26,23,0.6)]"
+        >
+          <div>
+            <h2 className="font-display text-3xl tracking-tight text-ink">Browse Yarns</h2>
+            <p className="mt-2 text-ink-muted">Find your next favorite skein.</p>
+          </div>
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-sage-soft text-sage-deep transition-transform group-hover:scale-105">
+            <DropletIcon className="h-6 w-6" />
+          </span>
+        </Link>
+
+        {/* Yarn stash */}
+        <Link
+          href="/stash"
+          className="group flex items-center justify-between gap-6 rounded-3xl border border-line bg-surface p-8 transition-shadow hover:shadow-[0_20px_50px_-35px_rgba(28,26,23,0.6)] lg:col-span-2"
+        >
+          <div>
+            <h2 className="font-display text-3xl tracking-tight text-ink">Yarn Stash</h2>
+            <p className="mt-2 text-ink-muted">
+              {totalStashSkeins} skeins waiting on a project.
+            </p>
+          </div>
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-sand-soft text-ink-muted transition-transform group-hover:scale-105">
+            <PackageIcon className="h-6 w-6" />
+          </span>
+        </Link>
+      </section>
+    </main>
   )
 }

@@ -87,7 +87,7 @@ export default function UploadPatternPage() {
     <div className="min-h-screen bg-background">
       <main className="container mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-12">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-foreground mb-2">
+          <h1 className="font-display text-5xl tracking-tight text-ink mb-3">
             Upload Knitting Pattern
           </h1>
           <p className="text-foreground/70">
@@ -103,12 +103,12 @@ export default function UploadPatternPage() {
         )}
 
         {/* Step 1: Select PDF */}
-        <Card className={`p-6 mb-4 transition-all ${currentStep === 1 ? 'ring-2 ring-teal-500' : ''}`}>
+        <Card className={`p-6 mb-4 transition-all ${currentStep === 1 ? 'ring-2 ring-terracotta' : ''}`}>
           <div className="flex items-center gap-3 mb-4">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
               currentStep > 1
-                ? 'bg-teal-600 text-white'
-                : 'bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-300'
+                ? 'bg-terracotta text-white'
+                : 'bg-terracotta-soft dark:bg-terracotta-deep text-terracotta-deep dark:text-terracotta'
             }`}>
               {currentStep > 1 ? '\u2713' : '1'}
             </div>
@@ -131,8 +131,8 @@ export default function UploadPatternPage() {
                 htmlFor="pdf-upload"
                 className="cursor-pointer flex flex-col items-center"
               >
-                <div className="w-16 h-16 rounded-full bg-teal-50 dark:bg-teal-950/30 flex items-center justify-center mb-4">
-                  <svg className="w-8 h-8 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="w-16 h-16 rounded-full bg-terracotta-soft dark:bg-terracotta-deep/30 flex items-center justify-center mb-4">
+                  <svg className="w-8 h-8 text-terracotta dark:text-terracotta" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
                   </svg>
                 </div>
@@ -145,9 +145,9 @@ export default function UploadPatternPage() {
               </label>
             </div>
           ) : (
-            <div className="flex items-center justify-between p-4 bg-teal-50 dark:bg-teal-950/20 rounded-lg">
+            <div className="flex items-center justify-between p-4 bg-terracotta-soft dark:bg-terracotta-deep/20 rounded-lg">
               <div className="flex items-center gap-3">
-                <svg className="w-8 h-8 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-8 h-8 text-terracotta dark:text-terracotta" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
                 <div>
@@ -171,14 +171,14 @@ export default function UploadPatternPage() {
 
         {/* Step 2: Upload & Detect Sizes */}
         <Card className={`p-6 mb-4 transition-all ${
-          currentStep === 2 ? 'ring-2 ring-teal-500' : ''
+          currentStep === 2 ? 'ring-2 ring-terracotta' : ''
         } ${currentStep < 2 ? 'opacity-50' : ''}`}>
           <div className="flex items-center gap-3 mb-4">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
               currentStep > 2
-                ? 'bg-teal-600 text-white'
+                ? 'bg-terracotta text-white'
                 : currentStep === 2
-                ? 'bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-300'
+                ? 'bg-terracotta-soft dark:bg-terracotta-deep text-terracotta-deep dark:text-terracotta'
                 : 'bg-foreground/10 text-foreground/40'
             }`}>
               {currentStep > 2 ? '\u2713' : '2'}
@@ -194,12 +194,12 @@ export default function UploadPatternPage() {
 
           {isUploading ? (
             <div className="text-center py-4">
-              <div className="inline-flex items-center gap-3 px-6 py-3 bg-teal-50 dark:bg-teal-950/20 rounded-lg">
-                <svg className="w-5 h-5 text-teal-600 animate-spin" fill="none" viewBox="0 0 24 24">
+              <div className="inline-flex items-center gap-3 px-6 py-3 bg-terracotta-soft dark:bg-terracotta-deep/20 rounded-lg">
+                <svg className="w-5 h-5 text-terracotta animate-spin" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                <span className="text-sm font-medium text-teal-700 dark:text-teal-300">
+                <span className="text-sm font-medium text-terracotta-deep dark:text-terracotta">
                   Uploading and detecting sizes...
                 </span>
               </div>
@@ -219,14 +219,14 @@ export default function UploadPatternPage() {
 
         {/* Step 3: Choose Size / Process */}
         <Card className={`p-6 mb-4 transition-all ${
-          currentStep === 3 ? 'ring-2 ring-teal-500' : ''
+          currentStep === 3 ? 'ring-2 ring-terracotta' : ''
         } ${currentStep < 3 ? 'opacity-50' : ''}`}>
           <div className="flex items-center gap-3 mb-4">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
               currentStep > 3
-                ? 'bg-teal-600 text-white'
+                ? 'bg-terracotta text-white'
                 : currentStep === 3
-                ? 'bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-300'
+                ? 'bg-terracotta-soft dark:bg-terracotta-deep text-terracotta-deep dark:text-terracotta'
                 : 'bg-foreground/10 text-foreground/40'
             }`}>
               {currentStep > 3 ? '\u2713' : '3'}
@@ -246,7 +246,7 @@ export default function UploadPatternPage() {
                   <button
                     key={size}
                     onClick={() => upload.selectSize(size)}
-                    className="px-4 py-3 rounded-lg border-2 border-foreground/15 hover:border-teal-500 hover:bg-teal-50 dark:hover:bg-teal-950/20 text-foreground font-medium transition-all text-center"
+                    className="px-4 py-3 rounded-lg border-2 border-foreground/15 hover:border-terracotta hover:bg-terracotta-soft dark:hover:bg-terracotta-deep/20 text-foreground font-medium transition-all text-center"
                   >
                     {size}
                   </button>
@@ -257,12 +257,12 @@ export default function UploadPatternPage() {
 
           {isExtracting && (
             <div className="text-center py-4">
-              <div className="inline-flex items-center gap-3 px-6 py-3 bg-teal-50 dark:bg-teal-950/20 rounded-lg">
-                <svg className="w-5 h-5 text-teal-600 animate-spin" fill="none" viewBox="0 0 24 24">
+              <div className="inline-flex items-center gap-3 px-6 py-3 bg-terracotta-soft dark:bg-terracotta-deep/20 rounded-lg">
+                <svg className="w-5 h-5 text-terracotta animate-spin" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                <span className="text-sm font-medium text-teal-700 dark:text-teal-300">
+                <span className="text-sm font-medium text-terracotta-deep dark:text-terracotta">
                   Extracting pattern{upload.selectedSize ? ` for size ${upload.selectedSize}` : ''}
                   ... this usually takes 30-60 seconds. You can leave this page — it&apos;ll keep
                   going and be here when you get back.
@@ -280,12 +280,12 @@ export default function UploadPatternPage() {
 
         {/* Step 4: Success */}
         <Card className={`p-6 mb-4 transition-all ${
-          currentStep === 4 ? 'ring-2 ring-teal-500' : 'opacity-50'
+          currentStep === 4 ? 'ring-2 ring-terracotta' : 'opacity-50'
         }`}>
           <div className="flex items-center gap-3">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
               currentStep === 4
-                ? 'bg-teal-600 text-white'
+                ? 'bg-terracotta text-white'
                 : 'bg-foreground/10 text-foreground/40'
             }`}>
               {currentStep === 4 ? '\u2713' : '4'}
@@ -308,7 +308,7 @@ export default function UploadPatternPage() {
         </Card>
 
         {/* Tips */}
-        <Card className="p-6 mt-6 bg-teal-50 dark:bg-teal-950/20 border-teal-200 dark:border-teal-800">
+        <Card className="p-6 mt-6 bg-terracotta-soft dark:bg-terracotta-deep/20 border-terracotta-soft dark:border-terracotta-deep">
           <h3 className="font-semibold text-foreground mb-2">Tips for best results</h3>
           <ul className="text-sm text-foreground/80 space-y-1 list-disc list-inside">
             <li>Use clear, well-formatted PDF patterns</li>

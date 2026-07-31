@@ -119,7 +119,7 @@ export default function StashPage() {
       <main className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-foreground mb-2">
+          <h1 className="font-display text-5xl tracking-tight text-ink mb-3">
             My Yarn Stash
           </h1>
           <p className="text-foreground/70">
@@ -143,13 +143,13 @@ export default function StashPage() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
           <Card className="p-6">
             <div className="text-sm text-foreground/70 mb-1">Total Skeins</div>
-            <div className="text-3xl font-bold text-teal-600 dark:text-teal-400">
+            <div className="text-3xl font-bold text-terracotta dark:text-terracotta">
               {totalSkeins}
             </div>
           </Card>
           <Card className="p-6">
             <div className="text-sm text-foreground/70 mb-1">Total Yardage</div>
-            <div className="text-3xl font-bold text-purple-600 dark:text-purple-400">
+            <div className="text-3xl font-bold text-sage-deep dark:text-sage-deep">
               {totalYardage.toLocaleString()} yds
             </div>
           </Card>

@@ -37,12 +37,17 @@ function useFeedbackMailto(topic: string) {
  */
 export function FeedbackButton() {
   const href = useFeedbackMailto('general')
+  const pathname = usePathname()
+
+  // The sidebar rail owns the bottom-left corner on wide screens; step past it
+  // everywhere except the auth screens, which render without the shell.
+  const offset = pathname.startsWith('/auth') ? '' : 'lg:left-[300px]'
 
   return (
     <a
       href={href}
       aria-label={`Send feedback to ${FEEDBACK_EMAIL}`}
-      className="fixed bottom-4 left-4 z-50 inline-flex items-center gap-2 rounded-full bg-teal-600 px-4 py-2.5 text-sm font-medium text-white shadow-lg transition-colors hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2 dark:bg-teal-700 dark:hover:bg-teal-600"
+      className={`fixed bottom-4 left-4 z-50 inline-flex items-center gap-2 rounded-full border border-line bg-surface px-4 py-2.5 text-sm font-medium text-ink-muted shadow-[0_10px_30px_-18px_rgba(28,26,23,0.7)] transition-colors hover:bg-parchment-deep hover:text-ink focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta focus-visible:ring-offset-2 focus-visible:ring-offset-parchment ${offset}`}
     >
       <svg
         className="w-4 h-4 flex-shrink-0"

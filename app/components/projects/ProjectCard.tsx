@@ -22,7 +22,7 @@ export function ProjectCard({ project, showAddButton = false, onAdd }: ProjectCa
           />
         </div>
       ) : (
-        <div className="w-full h-48 bg-gradient-to-br from-teal-100 to-teal-50 dark:from-teal-900/20 dark:to-teal-800/20 rounded-md flex items-center justify-center">
+        <div className="w-full h-48 bg-gradient-to-br from-terracotta-soft to-terracotta-soft dark:from-terracotta-deep/20 dark:to-terracotta-deep/20 rounded-md flex items-center justify-center">
           <span className="text-6xl">🧶</span>
         </div>
       )}
