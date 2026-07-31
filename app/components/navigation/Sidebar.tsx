@@ -6,16 +6,20 @@ import { useState } from 'react'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { mockProjects } from '@/lib/data/mockProjects'
 import {
+  ChevronsLeftIcon,
+  ChevronsRightIcon,
   CloseIcon,
   DropletIcon,
   FileIcon,
   GridIcon,
   InboxIcon,
   ListIcon,
+  LogInIcon,
   LogOutIcon,
   MenuIcon,
   YarnMark,
 } from '@/app/components/ui/icons'
+import { toggleSidebar, useHydrated, useSidebarCollapsed } from './sidebarState'
 
 const navItems = [
   { name: 'Studio', path: '/', icon: GridIcon, exact: true },
@@ -29,34 +33,50 @@ function isActivePath(pathname: string, path: string, exact?: boolean) {
   return exact ? pathname === path : pathname === path || pathname.startsWith(`${path}/`)
 }
 
-function NavList({ onNavigate }: { onNavigate?: () => void }) {
+function NavList({ collapsed = false, onNavigate }: { collapsed?: boolean; onNavigate?: () => void }) {
   const pathname = usePathname()
   const queuedCount = mockProjects.filter((p) => p.status === 'queued').length
 
   return (
     <nav className="flex flex-col gap-1">
-      <p className="eyebrow mb-3 px-4 text-ink-soft">Menu</p>
+      {!collapsed && <p className="eyebrow mb-3 px-4 text-ink-soft">Menu</p>}
       {navItems.map((item) => {
         const active = isActivePath(pathname, item.path, item.exact)
         const Icon = item.icon
+        const badge = item.name === 'Queue' && queuedCount > 0 ? queuedCount : null
+
         return (
           <Link
             key={item.path}
             href={item.path}
             onClick={onNavigate}
+            title={collapsed ? item.name : undefined}
             aria-current={active ? 'page' : undefined}
-            className={`group flex items-center gap-3.5 rounded-2xl px-4 py-3.5 text-[0.95rem] transition-colors ${
+            className={`group flex items-center rounded-2xl py-3.5 text-[0.95rem] transition-colors ${
+              collapsed ? 'justify-center px-0' : 'gap-3.5 px-4'
+            } ${
               active
                 ? 'bg-surface text-terracotta font-semibold shadow-[0_1px_2px_rgba(28,26,23,0.04),0_8px_24px_-12px_rgba(28,26,23,0.18)]'
                 : 'text-ink-muted hover:bg-parchment-deep hover:text-ink'
             }`}
           >
-            <Icon className="h-5 w-5 shrink-0" />
-            <span className="flex-1">{item.name}</span>
-            {item.name === 'Queue' && queuedCount > 0 && (
-              <span className="rounded-full bg-parchment-deep px-2 py-0.5 text-xs font-semibold text-ink-muted">
-                {queuedCount}
-              </span>
+            <span className="relative shrink-0">
+              <Icon className="h-5 w-5" />
+              {collapsed && badge && (
+                <span className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-terracotta px-1 text-[0.625rem] font-semibold text-parchment">
+                  {badge}
+                </span>
+              )}
+            </span>
+            {!collapsed && (
+              <>
+                <span className="flex-1">{item.name}</span>
+                {badge && (
+                  <span className="rounded-full bg-parchment-deep px-2 py-0.5 text-xs font-semibold text-ink-muted">
+                    {badge}
+                  </span>
+                )}
+              </>
             )}
           </Link>
         )
@@ -65,7 +85,7 @@ function NavList({ onNavigate }: { onNavigate?: () => void }) {
   )
 }
 
-function AccountPanel({ onNavigate }: { onNavigate?: () => void }) {
+function AccountPanel({ collapsed = false, onNavigate }: { collapsed?: boolean; onNavigate?: () => void }) {
   const router = useRouter()
   const { user, signOut } = useAuth()
 
@@ -81,9 +101,12 @@ function AccountPanel({ onNavigate }: { onNavigate?: () => void }) {
         <Link
           href="/auth/login"
           onClick={onNavigate}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl bg-ink px-4 py-3 text-sm font-medium text-parchment transition-colors hover:bg-terracotta"
+          title={collapsed ? 'Sign in' : undefined}
+          className={`flex w-full items-center justify-center gap-2 bg-ink text-sm font-medium text-parchment transition-colors hover:bg-terracotta ${
+            collapsed ? 'aspect-square rounded-2xl' : 'rounded-2xl px-4 py-3'
+          }`}
         >
-          Sign In
+          {collapsed ? <LogInIcon className="h-5 w-5" /> : 'Sign In'}
         </Link>
       </div>
     )
@@ -91,31 +114,55 @@ function AccountPanel({ onNavigate }: { onNavigate?: () => void }) {
 
   return (
     <div className="border-t border-line pt-5">
-      <div className="mb-4 flex items-center gap-3 px-1">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sage-soft font-display text-lg text-sage-deep">
+      <div className={`mb-4 flex items-center gap-3 ${collapsed ? 'justify-center' : 'px-1'}`}>
+        <span
+          title={collapsed ? (user.email ?? undefined) : undefined}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sage-soft font-display text-lg text-sage-deep"
+        >
           {user.email?.[0]?.toUpperCase() ?? 'K'}
         </span>
-        <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-ink">{user.email}</p>
-          <p className="text-xs text-ink-soft">Pro Member</p>
-        </div>
+        {!collapsed && (
+          <div className="min-w-0">
+            <p className="truncate text-sm font-medium text-ink">{user.email}</p>
+            <p className="text-xs text-ink-soft">Pro Member</p>
+          </div>
+        )}
       </div>
       <button
         onClick={handleSignOut}
-        className="flex w-full items-center justify-center gap-2 rounded-2xl border border-line-strong px-4 py-3 text-sm font-medium text-ink transition-colors hover:bg-parchment-deep"
+        title={collapsed ? 'Sign out' : undefined}
+        className={`flex w-full items-center justify-center gap-2 border border-line-strong text-sm font-medium text-ink transition-colors hover:bg-parchment-deep ${
+          collapsed ? 'aspect-square rounded-2xl' : 'rounded-2xl px-4 py-3'
+        }`}
       >
         <LogOutIcon className="h-4 w-4" />
-        Sign Out
+        {!collapsed && 'Sign Out'}
       </button>
     </div>
   )
 }
 
-function Wordmark({ onNavigate }: { onNavigate?: () => void }) {
+function CollapseToggle({ collapsed }: { collapsed: boolean }) {
+  const label = collapsed ? 'Expand sidebar' : 'Collapse sidebar'
+
   return (
-    <Link href="/" onClick={onNavigate} className="flex items-center gap-3.5">
+    <button
+      onClick={toggleSidebar}
+      aria-label={label}
+      aria-expanded={!collapsed}
+      title={label}
+      className="rounded-xl p-2 text-ink-soft transition-colors hover:bg-parchment-deep hover:text-ink"
+    >
+      {collapsed ? <ChevronsRightIcon className="h-5 w-5" /> : <ChevronsLeftIcon className="h-5 w-5" />}
+    </button>
+  )
+}
+
+function Wordmark({ collapsed = false, onNavigate }: { collapsed?: boolean; onNavigate?: () => void }) {
+  return (
+    <Link href="/" onClick={onNavigate} className="flex items-center gap-3.5" title={collapsed ? 'YarnStash' : undefined}>
       <YarnMark className="h-11 w-11" />
-      <span className="font-display text-2xl tracking-tight text-ink">YarnStash</span>
+      {!collapsed && <span className="font-display text-2xl tracking-tight text-ink">YarnStash</span>}
     </Link>
   )
 }
@@ -123,6 +170,8 @@ function Wordmark({ onNavigate }: { onNavigate?: () => void }) {
 export function Sidebar() {
   const pathname = usePathname()
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const collapsed = useSidebarCollapsed()
+  const hydrated = useHydrated()
 
   // The auth screens are standalone — no shell chrome around them.
   if (pathname.startsWith('/auth')) return null
@@ -130,14 +179,19 @@ export function Sidebar() {
   return (
     <>
       {/* Desktop rail */}
-      <aside className="fixed inset-y-0 left-0 z-40 hidden w-[280px] flex-col justify-between border-r border-line bg-parchment px-6 py-8 lg:flex">
+      <aside
+        className={`fixed inset-y-0 left-0 z-40 hidden flex-col justify-between overflow-x-hidden border-r border-line bg-parchment py-8 lg:flex ${
+          collapsed ? 'w-[88px] px-4' : 'w-[280px] px-6'
+        } ${hydrated ? 'transition-[width,padding] duration-200 ease-out' : ''}`}
+      >
         <div>
-          <div className="mb-12 px-1">
-            <Wordmark />
+          <div className={`mb-12 flex items-center ${collapsed ? 'flex-col gap-4' : 'justify-between px-1'}`}>
+            <Wordmark collapsed={collapsed} />
+            <CollapseToggle collapsed={collapsed} />
           </div>
-          <NavList />
+          <NavList collapsed={collapsed} />
         </div>
-        <AccountPanel />
+        <AccountPanel collapsed={collapsed} />
       </aside>
 
       {/* Mobile bar */}
@@ -152,7 +206,7 @@ export function Sidebar() {
         </button>
       </header>
 
-      {/* Mobile drawer */}
+      {/* Mobile drawer — always full width; the collapse toggle is a desktop affordance. */}
       {drawerOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <div

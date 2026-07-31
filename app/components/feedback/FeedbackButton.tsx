@@ -3,6 +3,7 @@
 import { ReactNode } from 'react'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/lib/auth/AuthContext'
+import { useSidebarCollapsed } from '@/app/components/navigation/sidebarState'
 
 export const FEEDBACK_EMAIL = 'team.rootslinks@gmail.com'
 
@@ -38,10 +39,15 @@ function useFeedbackMailto(topic: string) {
 export function FeedbackButton() {
   const href = useFeedbackMailto('general')
   const pathname = usePathname()
+  const collapsed = useSidebarCollapsed()
 
   // The sidebar rail owns the bottom-left corner on wide screens; step past it
   // everywhere except the auth screens, which render without the shell.
-  const offset = pathname.startsWith('/auth') ? '' : 'lg:left-[300px]'
+  const offset = pathname.startsWith('/auth')
+    ? ''
+    : collapsed
+      ? 'lg:left-[108px]'
+      : 'lg:left-[300px]'
 
   return (
     <a

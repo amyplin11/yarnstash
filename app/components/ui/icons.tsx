@@ -146,6 +146,32 @@ export function LogOutIcon(props: IconProps) {
   )
 }
 
+export function LogInIcon(props: IconProps) {
+  return (
+    <Line {...props}>
+      <path d="M9 3H5.5A1.5 1.5 0 0 0 4 4.5v15A1.5 1.5 0 0 0 5.5 21H9" />
+      <path d="M15 8l4 4-4 4" />
+      <path d="M19 12H9" />
+    </Line>
+  )
+}
+
+export function ChevronsLeftIcon(props: IconProps) {
+  return (
+    <Line {...props}>
+      <path d="M11 6l-6 6 6 6M18 6l-6 6 6 6" />
+    </Line>
+  )
+}
+
+export function ChevronsRightIcon(props: IconProps) {
+  return (
+    <Line {...props}>
+      <path d="M13 6l6 6-6 6M6 6l6 6-6 6" />
+    </Line>
+  )
+}
+
 export function MenuIcon(props: IconProps) {
   return (
     <Line {...props}>
