@@ -34,6 +34,21 @@ export async function GET() {
   }
 }
 
+/** Columns a client is allowed to set; anything else in the body is ignored. */
+const TEXT_FIELDS = [
+  'ravelry_yarn_id',
+  'brand',
+  'name',
+  'colorway',
+  'weight',
+  'fiber_content',
+  'location',
+  'notes',
+  'image_url',
+  'purchase_date',
+] as const
+const NUMBER_FIELDS = ['yardage', 'grams_per_skein', 'skeins', 'purchase_price'] as const
+
 // POST - Add yarn to stash
 export async function POST(request: NextRequest) {
   try {
@@ -47,12 +62,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    if (!body?.brand?.trim() || !body?.name?.trim()) {
+      return NextResponse.json(
+        { error: 'Brand and yarn name are required' },
+        { status: 400 }
+      )
+    }
+
+    // Whitelist rather than spreading the body — an unknown key would otherwise
+    // fail the insert with an opaque 500.
+    const record: Record<string, unknown> = { user_id: user.id }
+    for (const field of TEXT_FIELDS) {
+      const value = body[field]
+      if (typeof value === 'string' && value.trim()) record[field] = value.trim()
+    }
+    for (const field of NUMBER_FIELDS) {
+      const value = Number(body[field])
+      if (body[field] !== undefined && body[field] !== '' && Number.isFinite(value)) {
+        record[field] = value
+      }
+    }
+    record.skeins = Math.max(1, Number(record.skeins) || 1)
+
     const { data, error } = await supabase
       .from('stash_yarns')
-      .insert({
-        user_id: user.id,
-        ...body,
-      })
+      .insert(record)
       .select()
       .single()
 

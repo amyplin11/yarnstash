@@ -2,11 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { StashYarn } from '@/lib/types'
 import { YarnGrid } from '@/app/components/yarns/YarnGrid'
+import { AddYarnDialog } from '@/app/components/yarns/AddYarnDialog'
 import { Card } from '@/app/components/ui/Card'
 import { YarnWeight } from '@/lib/types'
 import { Button } from '@/app/components/ui/Button'
+import { PlusIcon } from '@/app/components/ui/icons'
 import { useAuth } from '@/lib/auth/AuthContext'
 
 export default function StashPage() {
@@ -16,6 +19,7 @@ export default function StashPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [weightFilter, setWeightFilter] = useState<YarnWeight | 'all'>('all')
+  const [addOpen, setAddOpen] = useState(false)
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -118,13 +122,24 @@ export default function StashPage() {
     <div className="min-h-screen bg-background">
       <main className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="font-display text-5xl tracking-tight text-ink mb-3">
-            My Yarn Stash
-          </h1>
-          <p className="text-foreground/70">
-            Manage your personal yarn collection
-          </p>
+        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1 className="font-display text-5xl tracking-tight text-ink mb-3">
+              My Yarn Stash
+            </h1>
+            <p className="text-foreground/70">
+              Manage your personal yarn collection
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Link href="/yarns">
+              <Button variant="secondary">Browse catalog</Button>
+            </Link>
+            <Button variant="primary" onClick={() => setAddOpen(true)}>
+              <PlusIcon className="h-4 w-4" />
+              Add Yarn
+            </Button>
+          </div>
         </div>
 
         {/* Error Message */}
@@ -155,7 +170,7 @@ export default function StashPage() {
           </Card>
           <Card className="p-6">
             <div className="text-sm text-foreground/70 mb-1">Estimated Value</div>
-            <div className="text-3xl font-bold text-amber-600 dark:text-amber-400">
+            <div className="text-3xl font-bold text-honey">
               ${totalValue.toFixed(2)}
             </div>
           </Card>
@@ -187,9 +202,15 @@ export default function StashPage() {
             yarns={filteredStash}
             editable={true}
             onDelete={handleDelete}
-            emptyMessage="Your stash is empty. Browse yarns and add them to your stash!"
+            emptyMessage="Your stash is empty."
           />
         )}
+
+        <AddYarnDialog
+          open={addOpen}
+          onClose={() => setAddOpen(false)}
+          onAdded={fetchStash}
+        />
       </main>
     </div>
   )
