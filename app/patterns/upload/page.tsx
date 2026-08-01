@@ -164,7 +164,7 @@ export default function UploadPatternPage() {
             <span className="h-px w-10 bg-sage-deep" aria-hidden="true" />
             <span className="eyebrow">Pattern library</span>
           </p>
-          <h1 className="font-display text-[3.25rem] leading-[0.98] tracking-[-0.02em] text-ink sm:text-6xl">
+          <h1 className="font-display text-4xl leading-[1.05] tracking-[-0.02em] text-ink sm:text-5xl">
             Upload Knitting Pattern
           </h1>
         </div>

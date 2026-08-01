@@ -38,17 +38,17 @@ export default function Home() {
       {/* Hero */}
       <section className="flex flex-col gap-10 lg:flex-row lg:items-start lg:justify-between">
         <div className="max-w-2xl">
-          <p className="mb-7 flex items-center gap-4 text-terracotta">
+          <p className="mb-4 flex items-center gap-4 text-terracotta">
             <span className="h-px w-10 bg-terracotta" aria-hidden="true" />
             <span className="eyebrow">Welcome back</span>
           </p>
 
-          <h1 className="font-display text-[3.25rem] leading-[0.98] tracking-[-0.02em] text-ink sm:text-7xl">
+          <h1 className="font-display text-4xl leading-[1.05] tracking-[-0.02em] text-ink sm:text-5xl">
             Curate your collection with{' '}
             <span className="italic text-sage">YarnStash.</span>
           </h1>
 
-          <p className="mt-8 max-w-xl text-lg leading-relaxed text-ink-muted">
+          <p className="mt-4 max-w-xl leading-relaxed text-ink-muted">
             Organize your knitting projects, explore new patterns, and manage your yarn
             inventory in one beautiful, tactile space.
           </p>
@@ -67,29 +67,9 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Stat strip */}
-      <section className="mt-14 grid grid-cols-1 overflow-hidden rounded-3xl bg-surface shadow-[0_1px_2px_rgba(28,26,23,0.04),0_20px_50px_-40px_rgba(28,26,23,0.5)] sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map(({ value, label, icon: Icon, tint }, i) => (
-          <div
-            key={label}
-            className={`flex items-center gap-4 px-7 py-8 ${
-              i > 0 ? 'border-line sm:border-l' : ''
-            } ${i >= 2 ? 'sm:border-t lg:border-t-0' : ''}`}
-          >
-            <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${tint}`}>
-              <Icon className="h-5 w-5" />
-            </span>
-            <div>
-              <p className="font-display text-4xl leading-none text-ink">{value}</p>
-              <p className="eyebrow mt-2 text-ink-soft">{label}</p>
-            </div>
-          </div>
-        ))}
-      </section>
-
       {/* Current projects */}
       {currentProjects.length > 0 && (
-        <section className="mt-16">
+        <section className="mt-12">
           <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
             <div>
               <p className="mb-3 flex items-center gap-4 text-terracotta">
@@ -114,6 +94,26 @@ export default function Home() {
           </div>
         </section>
       )}
+
+      {/* Stat strip */}
+      <section className="mt-12 grid grid-cols-1 overflow-hidden rounded-3xl bg-surface shadow-[0_1px_2px_rgba(28,26,23,0.04),0_20px_50px_-40px_rgba(28,26,23,0.5)] sm:grid-cols-2 lg:grid-cols-4">
+        {stats.map(({ value, label, icon: Icon, tint }, i) => (
+          <div
+            key={label}
+            className={`flex items-center gap-4 px-7 py-8 ${
+              i > 0 ? 'border-line sm:border-l' : ''
+            } ${i >= 2 ? 'sm:border-t lg:border-t-0' : ''}`}
+          >
+            <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${tint}`}>
+              <Icon className="h-5 w-5" />
+            </span>
+            <div>
+              <p className="font-display text-4xl leading-none text-ink">{value}</p>
+              <p className="eyebrow mt-2 text-ink-soft">{label}</p>
+            </div>
+          </div>
+        ))}
+      </section>
 
       {/* Feature cards */}
       <section className="mt-16 grid grid-cols-1 gap-6 lg:grid-cols-3">
