@@ -130,6 +130,15 @@ export function CloudUploadIcon(props: IconProps) {
   )
 }
 
+export function CameraIcon(props: IconProps) {
+  return (
+    <Line {...props}>
+      <path d="M3 8.5A1.5 1.5 0 0 1 4.5 7h2.2a1.5 1.5 0 0 0 1.25-.67l.8-1.2A1.5 1.5 0 0 1 10 4.5h4a1.5 1.5 0 0 1 1.25.67l.8 1.2A1.5 1.5 0 0 0 17.3 7h2.2A1.5 1.5 0 0 1 21 8.5v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5z" />
+      <circle cx="12" cy="12.75" r="3.4" />
+    </Line>
+  )
+}
+
 export function CheckIcon(props: IconProps) {
   return (
     <Line {...props}>

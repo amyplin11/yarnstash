@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { Button } from '@/app/components/ui/Button'
-import { CloseIcon } from '@/app/components/ui/icons'
+import { CameraIcon, CloseIcon } from '@/app/components/ui/icons'
 import type { YarnWeight } from '@/lib/types'
 
 const WEIGHTS: YarnWeight[] = [
@@ -69,6 +69,8 @@ export function AddYarnDialog({
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [scanning, setScanning] = useState(false)
+  const [scanned, setScanned] = useState<string | null>(null)
 
   useEffect(() => {
     if (!open) return
@@ -83,6 +85,42 @@ export function AddYarnDialog({
 
   const set = (key: keyof typeof EMPTY) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
     setForm((prev) => ({ ...prev, [key]: e.target.value }))
+
+  /** Read a ball band and drop whatever is legible into the form. */
+  const handlePhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const photo = e.target.files?.[0]
+    // Let the same photo be re-picked after a failure.
+    e.target.value = ''
+    if (!photo) return
+
+    setScanning(true)
+    setError(null)
+    setScanned(null)
+    try {
+      const body = new FormData()
+      body.append('image', photo)
+      const response = await fetch('/api/stash/analyze', { method: 'POST', body })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.error || 'Failed to read the photo')
+
+      // Only fields the label actually showed; the rest keep what's already typed.
+      const found = Object.entries(data.yarn as Record<string, string | number | null>)
+        .filter(([, value]) => value !== null && value !== '')
+        .map(([key, value]) => [key, String(value)] as const)
+
+      if (found.length === 0) {
+        setError("Couldn't make out any details on that label. Try a closer, sharper photo.")
+        return
+      }
+
+      setForm((prev) => ({ ...prev, ...Object.fromEntries(found) }))
+      setScanned(`Filled in ${found.length} field${found.length === 1 ? '' : 's'} from your photo — check them before saving.`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to read the photo')
+    } finally {
+      setScanning(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -138,6 +176,43 @@ export function AddYarnDialog({
             <CloseIcon className="h-5 w-5" />
           </button>
         </div>
+
+        {/* Scan a ball band instead of typing it all in */}
+        <div className="mb-6 rounded-2xl border border-dashed border-line-strong bg-parchment px-5 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="font-medium text-ink">Scan the ball band</p>
+              <p className="text-sm text-ink-soft">
+                Take a photo of the label and we&apos;ll fill in what we can read.
+              </p>
+            </div>
+            <input
+              type="file"
+              id="yarn-label-photo"
+              accept="image/*"
+              capture="environment"
+              onChange={handlePhoto}
+              className="hidden"
+              disabled={scanning}
+            />
+            <label
+              htmlFor="yarn-label-photo"
+              aria-disabled={scanning}
+              className={`inline-flex shrink-0 items-center gap-2 rounded-full border border-line-strong bg-surface px-4 py-2.5 text-sm font-medium text-ink transition-colors ${
+                scanning ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-parchment-deep'
+              }`}
+            >
+              <CameraIcon className="h-4 w-4" />
+              {scanning ? 'Reading label…' : 'Take a photo'}
+            </label>
+          </div>
+        </div>
+
+        {scanned && (
+          <div className="mb-6 rounded-2xl bg-sage-soft px-5 py-4">
+            <p className="text-sm font-medium text-sage-deep">{scanned}</p>
+          </div>
+        )}
 
         {error && (
           <div className="mb-6 rounded-2xl bg-clay-soft px-5 py-4">
