@@ -41,19 +41,29 @@ export default function LoginPage() {
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
           redirectTo: `${window.location.origin}/auth/reset-password`,
         })
+        // Deliberately not confirming whether the address exists — that would
+        // let anyone probe for registered users. Errors are swallowed for the
+        // same reason: Supabase only reaches the send path for addresses that
+        // resolve to a real account, so surfacing the failure would turn this
+        // form into the enumeration oracle the neutral copy exists to prevent.
+        // (It also produced a baffling 'Email address "..." is invalid' for the
+        // sole reason that the account was real.) The console keeps the detail
+        // for whoever is debugging delivery.
         if (error) {
-          setError(error.message)
-        } else {
-          // Deliberately not confirming whether the address exists — that would
-          // let anyone probe for registered users.
-          setMessage(
-            "If an account exists for that email, we've sent a link to reset your password."
-          )
+          console.error('Password reset request failed:', error)
         }
+        setMessage(
+          "If an account exists for that email, we've sent a link to reset your password."
+        )
       } else if (mode === 'signup') {
-        const { error } = await signUp(email, password)
+        const { data, error } = await signUp(email, password)
         if (error) {
           setError(error.message)
+        } else if (data?.session) {
+          // Email confirmation is off, so the account is already usable and
+          // Supabase has signed us in — telling them to check their inbox for a
+          // mail that will never arrive just strands them on this page.
+          router.push('/stash')
         } else {
           setMessage('Account created! Check your email to confirm your account.')
         }
