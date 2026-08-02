@@ -283,14 +283,12 @@ export function AddYarnDialog({
     const body = [
       "This yarn isn't in the catalog. Please add it:",
       '',
-      `Brand: ${query.split(' ')[0] ?? ''}`,
-      `Yarn name: ${query}`,
+      `Yarn: ${query}`,
       `Colorway: ${form.colorway || '(not given)'}`,
       '',
-      'Anything else that would help (weight, fiber, yardage, a link):',
+      'Brand, weight, fiber, yardage, or a link — anything that helps:',
       '',
       '---',
-      `Searched for: ${query}`,
       `Account: ${user?.email ?? 'not signed in'}`,
     ].join('\n')
     return `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
