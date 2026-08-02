@@ -163,6 +163,15 @@ export function ArrowRightIcon(props: IconProps) {
   )
 }
 
+export function SearchIcon(props: IconProps) {
+  return (
+    <Line {...props}>
+      <circle cx="10.5" cy="10.5" r="6.5" />
+      <path d="M15.4 15.4 21 21" />
+    </Line>
+  )
+}
+
 export function LogOutIcon(props: IconProps) {
   return (
     <Line {...props}>

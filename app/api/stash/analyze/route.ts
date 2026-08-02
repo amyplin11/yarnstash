@@ -85,15 +85,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No image provided' }, { status: 400 })
     }
     if (!SUPPORTED_TYPES.includes(image.type)) {
-      // The browser re-encodes to JPEG before upload, so a HEIC arriving here
-      // means that step was skipped or failed — say so rather than "bad file".
-      const heic = /heic|heif/i.test(image.type)
+      // lib/images/to-jpeg.ts re-encodes every photo — HEIC included — before
+      // it gets here, so this is a client that skipped that step, not a user
+      // who picked the wrong file. Keep the advice generic.
       return NextResponse.json(
-        {
-          error: heic
-            ? "HEIC photos need converting first — open YarnStash in Safari on your iPhone, or shoot in Most Compatible mode."
-            : 'Please use a JPEG, PNG, GIF, or WebP photo',
-        },
+        { error: 'Please use a JPEG, PNG, GIF, or WebP photo' },
         { status: 400 }
       )
     }
