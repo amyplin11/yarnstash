@@ -163,6 +163,15 @@ export function ArrowRightIcon(props: IconProps) {
   )
 }
 
+export function TableIcon(props: IconProps) {
+  return (
+    <Line {...props}>
+      <rect x="3" y="4" width="18" height="16" rx="2.5" />
+      <path d="M3 9.5h18M3 15h18M9.5 9.5V20" />
+    </Line>
+  )
+}
+
 export function SearchIcon(props: IconProps) {
   return (
     <Line {...props}>
