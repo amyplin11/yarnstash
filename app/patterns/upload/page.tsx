@@ -33,7 +33,7 @@ function Spinner({ className = '' }: { className?: string }) {
 /** Horizontal progress rail: numbered discs joined by hairlines. */
 function Stepper({ active }: { active: number }) {
   return (
-    <ol className="mx-auto mt-14 flex max-w-2xl items-start">
+    <ol className="mx-auto mt-8 flex max-w-2xl items-start">
       {STEPS.map((label, i) => {
         const step = i + 1
         const done = step < active
@@ -44,11 +44,11 @@ function Stepper({ active }: { active: number }) {
             <div className="flex w-full items-center">
               <span className={`h-px flex-1 ${i === 0 ? 'bg-transparent' : 'bg-line-strong'}`} />
               <span
-                className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-full font-display text-2xl ring-[6px] ring-surface ${
+                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full font-display text-xl ring-[5px] ring-surface ${
                   done || current ? 'bg-sage text-parchment' : 'bg-sand-soft text-ink-soft'
                 }`}
               >
-                {done ? <CheckIcon className="h-6 w-6" /> : step}
+                {done ? <CheckIcon className="h-5 w-5" /> : step}
               </span>
               <span
                 className={`h-px flex-1 ${
@@ -57,7 +57,7 @@ function Stepper({ active }: { active: number }) {
               />
             </div>
             <span
-              className={`eyebrow mt-4 text-center ${done || current ? 'text-ink' : 'text-ink-soft'}`}
+              className={`eyebrow mt-3 text-center ${done || current ? 'text-ink' : 'text-ink-soft'}`}
             >
               {label}
             </span>
@@ -156,26 +156,30 @@ export default function UploadPatternPage() {
               }
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-12 sm:px-10 lg:px-14 lg:py-16">
-      {/* Header */}
-      <section className="flex flex-col gap-10 lg:flex-row lg:items-start lg:justify-between">
+    <main className="mx-auto max-w-5xl px-6 py-8 sm:px-10 lg:px-14">
+      {/*
+        Header. The date stamp and the cancel button sit on one row rather than
+        stacking: this page has to clear the fold on a 13" laptop, and a stacked
+        rail made the header taller than the title beside it for no gain.
+      */}
+      <section className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
         <div className="max-w-2xl">
-          <p className="mb-7 flex items-center gap-4 text-sage-deep">
+          <p className="mb-4 flex items-center gap-4 text-sage-deep">
             <span className="h-px w-10 bg-sage-deep" aria-hidden="true" />
             <span className="eyebrow">Pattern library</span>
           </p>
-          <h1 className="font-display text-4xl leading-[1.05] tracking-[-0.02em] text-ink sm:text-5xl">
+          <h1 className="font-display text-4xl leading-[1.05] tracking-[-0.02em] text-ink sm:text-[2.75rem]">
             Upload Knitting Pattern
           </h1>
         </div>
 
-        <div className="flex shrink-0 items-start gap-6 lg:flex-col lg:items-end lg:gap-5 lg:pt-2">
+        <div className="flex shrink-0 items-center gap-6">
           <TodayStamp />
           <Link
             href="/patterns"
             aria-label="Cancel and go back to your patterns"
             title="Cancel"
-            className="flex h-14 w-14 items-center justify-center rounded-full bg-surface text-ink shadow-[0_1px_2px_rgba(28,26,23,0.05),0_10px_30px_-12px_rgba(28,26,23,0.3)] transition-colors hover:bg-ink hover:text-parchment"
+            className="flex h-12 w-12 items-center justify-center rounded-full bg-surface text-ink shadow-[0_1px_2px_rgba(28,26,23,0.05),0_10px_30px_-12px_rgba(28,26,23,0.3)] transition-colors hover:bg-ink hover:text-parchment"
           >
             <CloseIcon className="h-5 w-5" />
           </Link>
@@ -185,15 +189,15 @@ export default function UploadPatternPage() {
       <Stepper active={activeStep} />
 
       {fileError && (
-        <div className="mx-auto mt-10 max-w-2xl rounded-2xl border border-clay-soft bg-clay-soft px-5 py-4 text-center">
+        <div className="mx-auto mt-6 max-w-2xl rounded-2xl border border-clay-soft bg-clay-soft px-5 py-3 text-center">
           <p className="text-sm font-medium text-clay">{fileError}</p>
         </div>
       )}
 
       {/* The one card, whose contents follow the active step */}
-      <Card className="mt-12 rounded-[2rem] p-8 text-center sm:p-14">
-        <h2 className="font-display text-4xl tracking-tight text-ink">{copy.title}</h2>
-        <p className="mx-auto mt-4 max-w-xl text-ink-muted">{copy.body}</p>
+      <Card className="mt-8 rounded-[2rem] p-6 text-center sm:p-8">
+        <h2 className="font-display text-3xl tracking-tight text-ink">{copy.title}</h2>
+        <p className="mx-auto mt-2 max-w-xl text-ink-muted">{copy.body}</p>
 
         {/* Step 1 — no file yet */}
         {!file && !isBusy && !isSelectingSize && !isSuccess && (
@@ -207,12 +211,12 @@ export default function UploadPatternPage() {
             />
             <label
               htmlFor="pdf-upload"
-              className="mt-10 flex cursor-pointer flex-col items-center rounded-[1.75rem] border-2 border-dashed border-line-strong px-6 py-14 transition-colors hover:border-sage hover:bg-sage-soft/30"
+              className="mt-6 flex cursor-pointer flex-col items-center rounded-[1.75rem] border-2 border-dashed border-line-strong px-6 py-8 transition-colors hover:border-sage hover:bg-sage-soft/30"
             >
-              <span className="flex h-24 w-24 items-center justify-center rounded-full bg-surface text-sage-deep shadow-[0_1px_2px_rgba(28,26,23,0.05),0_14px_36px_-18px_rgba(28,26,23,0.4)]">
-                <CloudUploadIcon className="h-9 w-9" />
+              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-surface text-sage-deep shadow-[0_1px_2px_rgba(28,26,23,0.05),0_14px_36px_-18px_rgba(28,26,23,0.4)]">
+                <CloudUploadIcon className="h-7 w-7" />
               </span>
-              <span className="mt-7 text-lg font-medium text-ink">Click to select PDF</span>
+              <span className="mt-4 text-lg font-medium text-ink">Click to select PDF</span>
               <span className="mt-1 text-sm text-ink-soft">
                 Any knitting pattern in PDF format
               </span>
@@ -222,7 +226,7 @@ export default function UploadPatternPage() {
 
         {/* Step 1 — file chosen, ready to send */}
         {file && !isBusy && !isSelectingSize && !isSuccess && (
-          <div className="mx-auto mt-10 max-w-xl">
+          <div className="mx-auto mt-6 max-w-xl">
             <div className="flex items-center justify-between gap-4 rounded-2xl bg-parchment px-5 py-4 text-left">
               <div className="flex min-w-0 items-center gap-3">
                 <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-sage-soft text-sage-deep">
@@ -246,7 +250,7 @@ export default function UploadPatternPage() {
             <Button
               variant="primary"
               size="lg"
-              className="mt-6 w-full"
+              className="mt-5 w-full"
               onClick={handleUpload}
               disabled={isBusy}
             >
@@ -257,7 +261,7 @@ export default function UploadPatternPage() {
 
         {/* Step 2 — choosing a size */}
         {isSelectingSize && upload.sizes && (
-          <div className="mx-auto mt-10 grid max-w-2xl grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+          <div className="mx-auto mt-6 grid max-w-2xl grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
             {upload.sizes.map((size) => (
               <button
                 key={size}
@@ -272,7 +276,7 @@ export default function UploadPatternPage() {
 
         {/* Working states */}
         {isBusy && (
-          <div className="mt-10 flex items-center justify-center gap-3 text-sage-deep">
+          <div className="mt-6 flex items-center justify-center gap-3 text-sage-deep">
             <Spinner className="h-5 w-5" />
             <span className="text-sm font-medium">
               {isUploading
@@ -283,25 +287,27 @@ export default function UploadPatternPage() {
         )}
 
         {isSuccess && (
-          <div className="mt-10 inline-flex items-center gap-3 rounded-full bg-sage-soft px-5 py-3 text-sage-deep">
+          <div className="mt-6 inline-flex items-center gap-3 rounded-full bg-sage-soft px-5 py-3 text-sage-deep">
             <CheckIcon className="h-5 w-5" />
             <span className="text-sm font-medium">Pattern uploaded and processed</span>
           </div>
         )}
       </Card>
 
-      {/* Tips */}
-      <section className="mt-8 rounded-[2rem] border border-line bg-sage-soft/50 p-8 sm:p-10">
-        <h3 className="font-display text-2xl tracking-tight text-ink">Tips for best results</h3>
-        <ul className="mt-4 space-y-2 text-ink-muted">
+      {/* Tips — a footnote strip under a hairline rather than a padded panel:
+          two columns cost two lines of height instead of four, which is what
+          keeps the whole flow above the fold on a 13" laptop. */}
+      <section className="mt-7 border-t border-line pt-5">
+        <h3 className="eyebrow text-sage-deep">Tips for best results</h3>
+        <ul className="mt-3 grid gap-x-8 gap-y-2 text-sm text-ink-muted sm:grid-cols-2">
           {[
             'Use clear, well-formatted PDF patterns',
             'Patterns with standard knitting abbreviations work best',
             'Charts, colorwork, and multi-size patterns are all supported',
             'After choosing your size, all stitch counts are resolved for you',
           ].map((tip) => (
-            <li key={tip} className="flex items-start gap-3">
-              <CheckIcon className="mt-1 h-4 w-4 shrink-0 text-sage-deep" />
+            <li key={tip} className="flex items-start gap-2.5">
+              <CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-sage-deep" />
               <span>{tip}</span>
             </li>
           ))}
