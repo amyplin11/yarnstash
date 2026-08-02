@@ -1,14 +1,19 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
-import { User } from '@supabase/supabase-js'
+import { Session, User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase/client'
 
 interface AuthContextType {
   user: User | null
   loading: boolean
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>
-  signUp: (email: string, password: string) => Promise<{ error: Error | null }>
+  // A session comes back only when the project has email confirmation turned
+  // off, which is how callers tell "you're in" from "go confirm your address".
+  signUp: (
+    email: string,
+    password: string
+  ) => Promise<{ data: { session: Session | null } | null; error: Error | null }>
   signOut: () => Promise<void>
 }
 
@@ -47,13 +52,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string) => {
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
       })
-      return { error }
+      return { data, error }
     } catch (error) {
-      return { error: error as Error }
+      return { data: null, error: error as Error }
     }
   }
 
