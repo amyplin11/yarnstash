@@ -2,10 +2,19 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/app/components/ui/Button'
-import { CameraIcon, CheckIcon, CloseIcon, SearchIcon } from '@/app/components/ui/icons'
+import {
+  ArrowLeftIcon,
+  CameraIcon,
+  CheckIcon,
+  CloseIcon,
+  FileIcon,
+  SearchIcon,
+} from '@/app/components/ui/icons'
 import { FEEDBACK_EMAIL } from '@/app/components/feedback/FeedbackButton'
+import { ReceiptImport } from './ReceiptImport'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { toUploadableJpeg } from '@/lib/images/to-jpeg'
+import { pickExactMatch, searchCatalog } from '@/lib/yarns/match'
 import { catalogYarnToYarn, type CatalogYarn } from '@/lib/types'
 
 /** Details that belong to this skein, not to the catalog entry. */
@@ -19,26 +28,10 @@ const EMPTY = {
 }
 
 /** Which way the user chose to find their yarn. */
-type Mode = 'choose' | 'photo' | 'search'
+type Mode = 'choose' | 'photo' | 'search' | 'receipt'
 
 const fieldStyles =
   'w-full rounded-2xl border border-line-strong bg-parchment px-4 py-3 text-ink placeholder-ink-soft focus:outline-none focus:ring-2 focus:ring-terracotta'
-
-/** Loose comparison so "Malabrigo!" and "malabrigo" count as the same brand. */
-function normalize(value: string | null | undefined) {
-  return (value ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
-}
-
-/**
- * Ball bands print the trading name, the catalog stores the company name —
- * "Malabrigo" on the label vs "Malabrigo Yarn" in the import. Containment
- * bridges that; the yarn name itself still has to match outright.
- */
-function brandMatches(a: string | null | undefined, b: string | null | undefined) {
-  const x = normalize(a)
-  const y = normalize(b)
-  return x.length > 0 && y.length > 0 && (x.includes(y) || y.includes(x))
-}
 
 /**
  * Blank optional fields have to travel as null, not "". `purchase_price` is
@@ -187,18 +180,10 @@ export function AddYarnDialog({
     }
     setSearching(true)
     try {
-      const response = await fetch(
-        `/api/yarns?query=${encodeURIComponent(q)}&page_size=8&sort=rating`
-      )
-      const data = await response.json()
-      const found: CatalogYarn[] = response.ok ? data.yarns ?? [] : []
+      const found = await searchCatalog(q)
       setResults(found)
       setSearched(true)
       return found
-    } catch {
-      setResults([])
-      setSearched(true)
-      return []
     } finally {
       setSearching(false)
     }
@@ -253,10 +238,7 @@ export function AddYarnDialog({
 
       // Auto-select only on an unambiguous hit — otherwise the user picks from
       // the candidates rather than silently getting the wrong yarn.
-      const exact = found.filter(
-        (y) => brandMatches(y.yarn_company_name, brand) && normalize(y.name) === normalize(name)
-      )
-      const match = exact.length === 1 ? exact[0] : null
+      const match = pickExactMatch(found, brand, name)
       if (match) {
         setSelected(match)
         setScanned(
@@ -372,11 +354,11 @@ export function AddYarnDialog({
         {/* Step 1 — how do you want to find it? */}
         {mode === 'choose' ? (
           <div>
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid gap-4 sm:grid-cols-3">
               <MethodCard
                 icon={<CameraIcon className="h-5 w-5" />}
                 title="Take a pic"
-                description="Photograph the ball band and we'll look the yarn up for you."
+                description="Photograph the ball band and we'll look the yarn up."
                 onClick={() => switchMode('photo')}
               />
               <MethodCard
@@ -385,11 +367,17 @@ export function AddYarnDialog({
                 description="Type the brand and yarn name to find it in the catalog."
                 onClick={() => switchMode('search')}
               />
+              <MethodCard
+                icon={<FileIcon className="h-5 w-5" />}
+                title="Upload a receipt"
+                description="Add a whole order at once, straight off the confirmation."
+                onClick={() => switchMode('receipt')}
+              />
             </div>
 
             <p className="mt-6 text-sm text-ink-soft">
-              Either way you&apos;ll pick the yarn from our catalog, so your stash stays linked to
-              real yardage and gauge. Anything we don&apos;t have yet, you can ask us to add.
+              Whichever way, you&apos;ll pick the yarn from our catalog, so your stash stays linked
+              to real yardage and gauge. Anything we don&apos;t have yet, you can ask us to add.
             </p>
 
             <div className="mt-8 flex justify-end">
@@ -402,21 +390,15 @@ export function AddYarnDialog({
           <>
             <button
               type="button"
-              onClick={() => switchMode(mode === 'photo' ? 'search' : 'photo')}
+              onClick={() => switchMode('choose')}
               className="mb-6 inline-flex items-center gap-2 text-sm text-ink-muted transition-colors hover:text-ink"
             >
-              {mode === 'photo' ? (
-                <>
-                  <SearchIcon className="h-4 w-4" />
-                  Search manually instead
-                </>
-              ) : (
-                <>
-                  <CameraIcon className="h-4 w-4" />
-                  Take a pic instead
-                </>
-              )}
+              <ArrowLeftIcon className="h-4 w-4" />
+              Choose another way
             </button>
+
+            {/* A receipt carries a whole order, so it owns its own review flow */}
+            {mode === 'receipt' && <ReceiptImport onClose={onClose} onAdded={onAdded} />}
 
             {/* Step 2a — read the ball band */}
             {mode === 'photo' && (
@@ -467,8 +449,8 @@ export function AddYarnDialog({
               </div>
             )}
 
-            {/* Step 2b — the catalog picker, shared by both routes */}
-            <div className="mb-6">
+            {/* Step 2b — the catalog picker, shared by the photo and search routes */}
+            <div className={`mb-6 ${mode === 'receipt' ? 'hidden' : ''}`}>
               {showSearchField && (
                 <Field label="Which yarn?">
                   <input
@@ -570,7 +552,7 @@ export function AddYarnDialog({
             </div>
 
             {/* Step 3 — this skein's own details, once a catalog yarn is picked */}
-            {selected ? (
+            {mode === 'receipt' ? null : selected ? (
               <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                 <Field label="Colorway">
                   <input
