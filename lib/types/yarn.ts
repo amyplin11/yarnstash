@@ -128,7 +128,8 @@ export interface CatalogYarnPhoto {
 export interface YarnSearchParams {
   query?: string
   weight?: string
-  brand?: string
+  /** Exact company names; repeated as `brand` search params on the request */
+  brand?: string[]
   discontinued?: boolean
   sort?: 'name' | 'rating' | 'company' | 'newest'
   page?: number
@@ -141,6 +142,35 @@ export interface YarnSearchResult {
   page: number
   pageSize: number
   totalPages: number
+}
+
+// === Brand filter + search autocomplete types ===
+
+export interface YarnBrand {
+  /** Exact `yarn_company_name` value, safe to send back as a `brand` filter */
+  name: string
+  /** How many non-discontinued yarns the catalog has for this brand */
+  count: number
+}
+
+export interface YarnBrandResult {
+  brands: YarnBrand[]
+  /** Total distinct brands in the catalog, not just the ones returned */
+  total: number
+}
+
+export interface YarnSuggestion {
+  id: string
+  name: string
+  /** Empty string when the catalog has no company for this yarn */
+  brand: string
+  weight: YarnWeight
+  imageUrl?: string
+}
+
+export interface YarnSuggestionResult {
+  brands: YarnBrand[]
+  yarns: YarnSuggestion[]
 }
 
 // === Conversion: CatalogYarn -> Yarn (for existing UI components) ===

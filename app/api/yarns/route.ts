@@ -5,7 +5,11 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams
   const query = searchParams.get('query') || ''
   const weight = searchParams.get('weight') || ''
-  const brand = searchParams.get('brand') || ''
+  // Repeated `brand` params, e.g. ?brand=Malabrigo%20Yarn&brand=Cascade%20Yarns
+  const brands = searchParams
+    .getAll('brand')
+    .map((value) => value.trim())
+    .filter(Boolean)
   const discontinued = searchParams.get('discontinued')
   const sort = searchParams.get('sort') || 'rating'
   const page = parseInt(searchParams.get('page') || '1', 10)
@@ -48,9 +52,12 @@ export async function GET(request: NextRequest) {
       dbQuery = dbQuery.in('yarn_weight_name', weights)
     }
 
-    // Brand filter
-    if (brand) {
-      dbQuery = dbQuery.ilike('yarn_company_name', `%${brand}%`)
+    // Brand filter. Exact match rather than ILIKE: the leading wildcard forced a
+    // sequential scan of ~98k rows (~2.2s vs ~0.3s), and it also conflated
+    // distinct brands like "Lang Yarns" and "Lang Yarns Jawoll". Values come
+    // from /api/yarns/brands, so they are already exact company names.
+    if (brands.length > 0) {
+      dbQuery = dbQuery.in('yarn_company_name', brands)
     }
 
     // Discontinued filter

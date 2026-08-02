@@ -50,8 +50,12 @@ Migrations are in `supabase/migrations/`, managed by the Supabase CLI and applie
 
 ### API routes (`app/api/`)
 
-- `/api/yarns` — Search the global yarn catalog (full-text search, weight/brand filters, pagination)
+- `/api/yarns` — Search the global yarn catalog (full-text search, weight/brand filters, pagination). Brands are matched exactly and the `brand` param may repeat to select several
 - `/api/yarns/[id]` — Single yarn detail
+- `/api/yarns/brands` — Distinct brand list for the brand filter, ranked by match quality then popularity (auth required)
+- `/api/yarns/suggest` — Search-bar autocomplete: brand + yarn suggestions for a partial query (auth required)
+
+The brand list behind those last two routes is derived, not stored. There is no `yarn_companies` table, PostgREST has no DISTINCT, and aggregate functions are disabled on this project, so `lib/yarns/brand-index.ts` sweeps the catalog once and caches the ~13k distinct brands in memory for 6 hours. Autocomplete only uses the index once it is warm, so a keystroke never waits on that sweep. Two performance constraints drive the rest: brand filtering uses exact matching because `ILIKE` with a leading wildcard forces a sequential scan (~2.2s vs ~0.3s), and suggestions go through `search_vector` with a `to_tsquery` prefix (`malab:*`) because `ILIKE` name search measured ~7.5s.
 - `/api/stash` — CRUD for user's personal yarn stash (auth required)
 - `/api/stash/[id]` — Single stash yarn
 - `/api/patterns` — User's patterns
