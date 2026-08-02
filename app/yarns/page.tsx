@@ -1,8 +1,16 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Yarn, YarnWeight, YarnSearchResult, catalogYarnToYarn } from '@/lib/types'
+import { useCallback, useEffect, useState } from 'react'
+import {
+  Yarn,
+  YarnWeight,
+  YarnSearchResult,
+  YarnSuggestion,
+  catalogYarnToYarn,
+} from '@/lib/types'
 import { YarnGrid } from '@/app/components/yarns/YarnGrid'
+import { BrandFilter } from '@/app/components/yarns/BrandFilter'
+import { SearchAutocomplete } from '@/app/components/yarns/SearchAutocomplete'
 import { Card } from '@/app/components/ui/Card'
 import { Button } from '@/app/components/ui/Button'
 
@@ -20,7 +28,10 @@ const WEIGHT_OPTIONS: { label: string; value: YarnWeight | 'all' }[] = [
 ]
 
 export default function YarnsPage() {
+  // What is typed in the box, vs. what is actually being queried. Keeping them
+  // separate stops a half-typed word from being applied when a filter changes.
   const [searchQuery, setSearchQuery] = useState('')
+  const [appliedQuery, setAppliedQuery] = useState('')
   const [yarns, setYarns] = useState<Yarn[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -28,20 +39,17 @@ export default function YarnsPage() {
   const [totalPages, setTotalPages] = useState(1)
   const [total, setTotal] = useState(0)
   const [weightFilter, setWeightFilter] = useState<YarnWeight | 'all'>('all')
+  const [brandFilter, setBrandFilter] = useState<string[]>([])
   const [sort, setSort] = useState<string>('rating')
 
-  useEffect(() => {
-    fetchYarns()
-  }, [page, weightFilter, sort])
-
-  const fetchYarns = async (query?: string) => {
+  const fetchYarns = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
       const params = new URLSearchParams()
-      const q = query !== undefined ? query : searchQuery
-      if (q) params.set('query', q)
+      if (appliedQuery) params.set('query', appliedQuery)
       if (weightFilter !== 'all') params.set('weight', weightFilter)
+      brandFilter.forEach((brand) => params.append('brand', brand))
       params.set('sort', sort)
       params.set('page', page.toString())
       params.set('page_size', '40')
@@ -63,17 +71,48 @@ export default function YarnsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [appliedQuery, weightFilter, brandFilter, sort, page])
+
+  useEffect(() => {
+    fetchYarns()
+  }, [fetchYarns])
 
   const handleSearch = () => {
     setPage(1)
-    fetchYarns(searchQuery)
+    setAppliedQuery(searchQuery)
   }
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSearch()
-    }
+  // Picking a brand suggestion filters by that brand, so the typed text (which
+  // was only a partial brand name) is cleared rather than narrowing it further.
+  const handleSelectBrand = (brand: string) => {
+    setPage(1)
+    setSearchQuery('')
+    setAppliedQuery('')
+    setBrandFilter((current) => (current.includes(brand) ? current : [...current, brand]))
+  }
+
+  // Picking a specific yarn searches for it by brand + name, which is precise
+  // enough to surface it without also changing the brand filter.
+  const handleSelectYarn = (yarn: YarnSuggestion) => {
+    const query = [yarn.brand, yarn.name].filter(Boolean).join(' ')
+    setPage(1)
+    setSearchQuery(query)
+    setAppliedQuery(query)
+  }
+
+  const handleBrandFilterChange = (brands: string[]) => {
+    setPage(1)
+    setBrandFilter(brands)
+  }
+
+  const hasActiveFilters = appliedQuery !== '' || weightFilter !== 'all' || brandFilter.length > 0
+
+  const clearAllFilters = () => {
+    setPage(1)
+    setSearchQuery('')
+    setAppliedQuery('')
+    setWeightFilter('all')
+    setBrandFilter([])
   }
 
   const handleAddToStash = async (yarnId: string) => {
@@ -116,7 +155,7 @@ export default function YarnsPage() {
       <main className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-foreground mb-2">
+          <h1 className="font-display text-5xl tracking-tight text-ink mb-3">
             Explore Yarns
           </h1>
           <p className="text-foreground/70">
@@ -125,18 +164,20 @@ export default function YarnsPage() {
         </div>
 
         {/* Search Bar */}
-        <div className="mb-6 flex gap-2">
-          <input
-            type="text"
-            placeholder="Search by brand, yarn name, or fiber..."
+        <div className="mb-6">
+          <SearchAutocomplete
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className="flex-1 px-4 py-3 rounded-lg border border-foreground/20 bg-background text-foreground placeholder-foreground/50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            onValueChange={setSearchQuery}
+            onSearch={handleSearch}
+            onSelectBrand={handleSelectBrand}
+            onSelectYarn={handleSelectYarn}
+            searching={loading}
           />
-          <Button onClick={handleSearch} disabled={loading}>
-            {loading ? 'Searching...' : 'Search'}
-          </Button>
+        </div>
+
+        {/* Brand Filter */}
+        <div className="mb-4">
+          <BrandFilter selected={brandFilter} onChange={handleBrandFilterChange} />
         </div>
 
         {/* Weight Filter */}
@@ -154,14 +195,25 @@ export default function YarnsPage() {
         </div>
 
         {/* Sort + Result count */}
-        <div className="flex justify-between items-center mb-6">
-          <p className="text-sm text-foreground/60">
-            {total.toLocaleString()} yarns found
-          </p>
+        <div className="flex justify-between items-center mb-6 gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <p className="text-sm text-ink-soft">
+              {total.toLocaleString()} yarns found
+            </p>
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={clearAllFilters}
+                className="text-sm text-terracotta hover:underline shrink-0"
+              >
+                Clear all filters
+              </button>
+            )}
+          </div>
           <select
             value={sort}
             onChange={(e) => { setSort(e.target.value); setPage(1) }}
-            className="px-3 py-1.5 rounded border border-foreground/20 bg-background text-foreground text-sm"
+            className="px-3 py-1.5 rounded-full border border-line bg-surface text-ink text-sm focus:outline-none focus:ring-2 focus:ring-terracotta"
           >
             <option value="rating">Highest Rated</option>
             <option value="name">Name A-Z</option>

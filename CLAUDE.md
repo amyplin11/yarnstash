@@ -24,7 +24,15 @@ The CLI is pinned as a dev dependency. Run `npx supabase login` and `npm run db:
 - `npm run db:diff -- <name>` — Generate a migration from dashboard changes
 - `npm run db:migrations` — Compare applied migrations, local vs remote
 
-⚠️ The hosted database predates migration tracking: every table exists in production but none is described in this repo, so the schema **cannot currently be recreated from source**. Run `npm run db:pull` and commit the baseline before writing new migrations. Details in `supabase/README.md`.
+Local stack (Docker), so development doesn't have to run against production:
+
+- `npm run db:start` / `db:stop` / `db:status` — Boot, halt, and inspect the local stack
+- `npm run db:reset` — Rebuild the local database: migrations, then `supabase/seed.sql`. Local only; resetting the hosted database would need an explicit `--linked`, which no script passes.
+- `npm run db:seed:generate` — Regenerate `supabase/seed.sql` from the hosted catalog (~300 yarns sampled across weight categories)
+
+`db:link` targets the production ref by default; set `SUPABASE_PROJECT_REF` to point a checkout at a different project.
+
+⚠️ The hosted database predates migration tracking: every table exists in production but none is described in this repo, so the schema **cannot currently be recreated from source**. Until `npm run db:pull` has been run and its baseline committed, **the local stack does not work** — `db:reset` would produce a database holding only `pattern_jobs`, and the seed would fail against it. Details in `supabase/README.md`.
 
 ### Validation workflow
 
@@ -50,8 +58,12 @@ Migrations are in `supabase/migrations/`, managed by the Supabase CLI and applie
 
 ### API routes (`app/api/`)
 
-- `/api/yarns` — Search the global yarn catalog (full-text search, weight/brand filters, pagination)
+- `/api/yarns` — Search the global yarn catalog (full-text search, weight/brand filters, pagination). Brands are matched exactly and the `brand` param may repeat to select several
 - `/api/yarns/[id]` — Single yarn detail
+- `/api/yarns/brands` — Distinct brand list for the brand filter, ranked by match quality then popularity (auth required)
+- `/api/yarns/suggest` — Search-bar autocomplete: brand + yarn suggestions for a partial query (auth required)
+
+The brand list behind those last two routes is derived, not stored. There is no `yarn_companies` table, PostgREST has no DISTINCT, and aggregate functions are disabled on this project, so `lib/yarns/brand-index.ts` sweeps the catalog once and caches the ~13k distinct brands in memory for 6 hours. Autocomplete only uses the index once it is warm, so a keystroke never waits on that sweep. Two performance constraints drive the rest: brand filtering uses exact matching because `ILIKE` with a leading wildcard forces a sequential scan (~2.2s vs ~0.3s), and suggestions go through `search_vector` with a `to_tsquery` prefix (`malab:*`) because `ILIKE` name search measured ~7.5s.
 - `/api/stash` — CRUD for user's personal yarn stash (auth required)
 - `/api/stash/[id]` — Single stash yarn
 - `/api/patterns` — User's patterns
@@ -150,4 +162,5 @@ These are documented so Claude knows the current state and can suggest or implem
 - **No CI/CD** — No GitHub Actions; lint + typecheck + build should run on PRs
 - **No Prettier** — Only ESLint; formatting is not enforced
 - **No error boundaries** — No React error boundary components for graceful crash recovery
-- **Schema not captured in source** — The Supabase CLI is wired up and `supabase/config.toml` exists, but no baseline migration has been generated yet, so the hosted schema can't be recreated from the repo. Run `npm run db:pull` and commit the result. Development still runs against the hosted project; a local Postgres is available via `npx supabase start` but nothing depends on it.
+- **Schema not captured in source** — No baseline migration has been generated, so the hosted schema can't be recreated from the repo. This is the single blocker for local development: the scripts, seed data and docs for a local stack are all in place, but `db:reset` can't build a usable database until the baseline exists. Unblocking it needs `npx supabase login` (browser) and the database password, then `npm run db:pull` — commit the result.
+- **Dev runs against production** — There is one hosted Supabase project and it holds real data. Until the baseline above is captured and the local stack is usable, editing anything destructive (notably the pattern delete path, which removes storage objects) is being done against live data.

@@ -379,7 +379,7 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
                   setShowSizePicker(false)
                   setFollowMode(true)
                 }}
-                className="px-4 py-3 rounded-lg text-sm font-medium transition-colors bg-foreground/5 text-foreground/70 hover:bg-teal-600 hover:text-white"
+                className="px-4 py-3 rounded-lg text-sm font-medium transition-colors bg-foreground/5 text-foreground/70 hover:bg-terracotta hover:text-white"
               >
                 {size}
               </button>
@@ -436,7 +436,7 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
             </div>
             <div className="w-full bg-foreground/10 rounded-full h-2">
               <div
-                className="bg-teal-600 h-2 rounded-full transition-all duration-300"
+                className="bg-terracotta h-2 rounded-full transition-all duration-300"
                 style={{ width: `${((currentStepIndex + 1) / flatSteps.length) * 100}%` }}
               />
             </div>
@@ -465,13 +465,13 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
             {/* Row/step label */}
             <div className="flex items-center gap-2 mb-4">
               {instr.row_start ? (
-                <span className="text-lg font-mono font-bold text-teal-600 dark:text-teal-400">
+                <span className="text-lg font-mono font-bold text-terracotta dark:text-terracotta">
                   {instr.row_start === instr.row_end || !instr.row_end
                     ? `Row ${instr.row_start}`
                     : `Rows ${instr.row_start}–${instr.row_end}`}
                 </span>
               ) : (
-                <span className="text-lg font-mono font-bold text-teal-600 dark:text-teal-400">
+                <span className="text-lg font-mono font-bold text-terracotta dark:text-terracotta">
                   Step {instr.step_number}
                 </span>
               )}
@@ -487,8 +487,8 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
 
             {/* Repeat info */}
             {instr.is_repeat && instr.repeat_count && (
-              <div className="mt-4 p-3 bg-teal-50 dark:bg-teal-950/20 rounded-lg">
-                <p className="text-sm font-medium text-teal-700 dark:text-teal-300">
+              <div className="mt-4 p-3 bg-terracotta-soft dark:bg-terracotta-deep/20 rounded-lg">
+                <p className="text-sm font-medium text-terracotta-deep dark:text-terracotta">
                   Repeat {instr.repeat_count}
                 </p>
               </div>
@@ -567,7 +567,7 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
         {/* Header */}
         <div className="mb-8">
           <div className="flex items-start justify-between gap-4 mb-2">
-            <h1 className="text-4xl font-bold text-foreground">{pattern.name}</h1>
+            <h1 className="font-display text-5xl tracking-tight text-ink">{pattern.name}</h1>
             <button
               onClick={handleDelete}
               disabled={deleting}
@@ -618,7 +618,7 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
                   onClick={() => handleSizeSelect(selectedSize === size ? null : size)}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                     selectedSize === size
-                      ? 'bg-teal-600 text-white'
+                      ? 'bg-terracotta text-white'
                       : 'bg-foreground/5 text-foreground/70 hover:bg-foreground/10'
                   }`}
                 >
@@ -748,22 +748,22 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
               if (!savedStep) return null
               return (
                 <Card
-                  className="p-4 mb-2 bg-teal-50 dark:bg-teal-950/20 border-teal-200 dark:border-teal-800 cursor-pointer hover:bg-teal-100 dark:hover:bg-teal-950/30 transition-colors"
+                  className="p-4 mb-2 bg-terracotta-soft dark:bg-terracotta-deep/20 border-terracotta-soft dark:border-terracotta-deep cursor-pointer hover:bg-terracotta-soft dark:hover:bg-terracotta-deep/30 transition-colors"
                   onClick={enterFollowMode}
                 >
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-teal-800 dark:text-teal-200">
+                      <p className="text-sm font-medium text-terracotta-deep dark:text-terracotta-soft">
                         Continue where you left off
                       </p>
-                      <p className="text-xs text-teal-600 dark:text-teal-400 mt-0.5">
+                      <p className="text-xs text-terracotta dark:text-terracotta mt-0.5">
                         {savedStep.sectionName} — Step {savedStep.globalIndex + 1} of {flatSteps.length}
                         {data.wip?.last_worked_at && (
                           <> — last worked {new Date(data.wip.last_worked_at).toLocaleDateString()}</>
                         )}
                       </p>
                     </div>
-                    <svg className="w-5 h-5 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-5 h-5 text-terracotta dark:text-terracotta" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                   </div>
@@ -833,7 +833,7 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
                               <div className="flex-1 min-w-0">
                                 {renderInstructionText(textForSize(instr))}
                                 {instr.is_repeat && instr.repeat_count && (
-                                  <p className="text-xs text-teal-600 dark:text-teal-400 mt-1">
+                                  <p className="text-xs text-terracotta dark:text-terracotta mt-1">
                                     Repeat {instr.repeat_count}
                                   </p>
                                 )}
@@ -923,7 +923,7 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
                 href={pattern.pdf_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm font-medium"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-terracotta text-white rounded-lg hover:bg-terracotta-deep transition-colors text-sm font-medium"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />

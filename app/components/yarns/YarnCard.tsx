@@ -19,8 +19,8 @@ export function YarnCard({ yarn, showAddButton = false, onAdd, editable = false,
 
   // Get first color for display
   const displayColor = yarnData.colors && yarnData.colors.length > 0
-    ? yarnData.colors[0].hexCode || '#9CA3AF'
-    : '#9CA3AF'
+    ? yarnData.colors[0].hexCode || '#d8d0bd'
+    : '#d8d0bd'
 
   return (
     <Card className="p-4 space-y-3">
@@ -104,7 +104,7 @@ export function YarnCard({ yarn, showAddButton = false, onAdd, editable = false,
                 <div
                   key={color.id}
                   className="w-6 h-6 rounded-full border border-foreground/20"
-                  style={{ backgroundColor: color.hexCode || '#9CA3AF' }}
+                  style={{ backgroundColor: color.hexCode || '#d8d0bd' }}
                   title={color.name}
                 />
               ))}

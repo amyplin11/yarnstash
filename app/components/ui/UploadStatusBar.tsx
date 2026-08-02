@@ -11,7 +11,7 @@ export function UploadStatusBar() {
   return (
     <div className="fixed bottom-4 right-4 z-50 max-w-sm w-full animate-in slide-in-from-bottom-4">
       {status === 'uploading' && (
-        <div className="bg-teal-600 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3">
+        <div className="bg-terracotta text-white px-4 py-3 rounded-2xl shadow-lg flex items-center gap-3">
           <svg className="w-5 h-5 animate-spin flex-shrink-0" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
@@ -23,7 +23,7 @@ export function UploadStatusBar() {
       )}
 
       {status === 'selecting_size' && (
-        <div className="bg-teal-600 text-white px-4 py-3 rounded-lg shadow-lg">
+        <div className="bg-terracotta text-white px-4 py-3 rounded-2xl shadow-lg">
           <div className="flex items-center justify-between gap-3">
             <span className="text-sm font-medium truncate">
               Choose a size for {fileName}
@@ -39,7 +39,7 @@ export function UploadStatusBar() {
       )}
 
       {status === 'extracting' && (
-        <div className="bg-teal-600 text-white px-4 py-3 rounded-lg shadow-lg flex items-center gap-3">
+        <div className="bg-terracotta text-white px-4 py-3 rounded-2xl shadow-lg flex items-center gap-3">
           <svg className="w-5 h-5 animate-spin flex-shrink-0" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
@@ -51,7 +51,7 @@ export function UploadStatusBar() {
       )}
 
       {status === 'success' && (
-        <div className={`${warnings?.length ? 'bg-amber-600' : 'bg-green-600'} text-white px-4 py-3 rounded-lg shadow-lg`}>
+        <div className={`${warnings?.length ? 'bg-amber-600' : 'bg-green-600'} text-white px-4 py-3 rounded-2xl shadow-lg`}>
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -93,7 +93,7 @@ export function UploadStatusBar() {
       )}
 
       {status === 'error' && (
-        <div className="bg-red-600 text-white px-4 py-3 rounded-lg shadow-lg flex items-center justify-between gap-3">
+        <div className="bg-red-600 text-white px-4 py-3 rounded-2xl shadow-lg flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />

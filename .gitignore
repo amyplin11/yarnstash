@@ -32,6 +32,10 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...except the template, which carries no secrets and is what new checkouts
+# copy from. Without this negation `.env*` swallows it and a fresh clone has
+# nothing to start from.
+!.env.example
 
 # vercel
 .vercel
