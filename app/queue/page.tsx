@@ -27,7 +27,7 @@ export default function QueuePage() {
       <main className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-foreground mb-2">
+          <h1 className="font-display text-5xl tracking-tight text-ink mb-3">
             Project Queue
           </h1>
           <p className="text-foreground/70">

@@ -155,7 +155,7 @@ export default function YarnsPage() {
       <main className="container mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-foreground mb-2">
+          <h1 className="font-display text-5xl tracking-tight text-ink mb-3">
             Explore Yarns
           </h1>
           <p className="text-foreground/70">
@@ -197,14 +197,14 @@ export default function YarnsPage() {
         {/* Sort + Result count */}
         <div className="flex justify-between items-center mb-6 gap-4">
           <div className="flex items-center gap-3 min-w-0">
-            <p className="text-sm text-foreground/60">
+            <p className="text-sm text-ink-soft">
               {total.toLocaleString()} yarns found
             </p>
             {hasActiveFilters && (
               <button
                 type="button"
                 onClick={clearAllFilters}
-                className="text-sm text-teal-600 dark:text-teal-400 hover:underline shrink-0"
+                className="text-sm text-terracotta hover:underline shrink-0"
               >
                 Clear all filters
               </button>
@@ -213,7 +213,7 @@ export default function YarnsPage() {
           <select
             value={sort}
             onChange={(e) => { setSort(e.target.value); setPage(1) }}
-            className="px-3 py-1.5 rounded border border-foreground/20 bg-background text-foreground text-sm"
+            className="px-3 py-1.5 rounded-full border border-line bg-surface text-ink text-sm focus:outline-none focus:ring-2 focus:ring-terracotta"
           >
             <option value="rating">Highest Rated</option>
             <option value="name">Name A-Z</option>

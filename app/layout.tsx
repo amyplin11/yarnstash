@@ -1,20 +1,21 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Figtree, Playfair_Display } from "next/font/google";
 import "./globals.css";
-import { Navbar } from "./components/navigation/Navbar";
+import { AppShell } from "./components/navigation/AppShell";
 import { AuthProvider } from "@/lib/auth/AuthContext";
 import { UploadProvider } from "@/lib/upload/UploadContext";
 import { UploadStatusBar } from "./components/ui/UploadStatusBar";
 import { FeedbackButton } from "./components/feedback/FeedbackButton";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const figtree = Figtree({
+  variable: "--font-figtree",
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const playfair = Playfair_Display({
+  variable: "--font-playfair",
   subsets: ["latin"],
+  style: ["normal", "italic"],
 });
 
 export const metadata: Metadata = {
@@ -30,12 +31,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${figtree.variable} ${playfair.variable} bg-parchment text-ink antialiased`}
       >
         <AuthProvider>
           <UploadProvider>
-            <Navbar />
-            {children}
+            <AppShell>{children}</AppShell>
             <UploadStatusBar />
             <FeedbackButton />
           </UploadProvider>

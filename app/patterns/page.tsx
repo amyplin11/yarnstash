@@ -68,6 +68,18 @@ export default function PatternsPage() {
     }
   }
 
+  // A pattern counts as a current project while it has progress that isn't finished.
+  const inProgress = patterns
+    .filter((p) => p.progress && !p.progress.completed_at)
+    .sort(
+      (a, b) =>
+        new Date(b.progress?.last_worked_at ?? 0).getTime() -
+        new Date(a.progress?.last_worked_at ?? 0).getTime()
+    )
+  const inProgressIds = new Set(inProgress.map((p) => p.id))
+  // The rest of the library, so nothing is listed twice.
+  const restOfLibrary = patterns.filter((p) => !inProgressIds.has(p.id))
+
   if (loading || authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -85,7 +97,7 @@ export default function PatternsPage() {
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-4xl font-bold text-foreground mb-2">
+            <h1 className="font-display text-5xl tracking-tight text-ink mb-3">
               My Patterns
             </h1>
             <p className="text-foreground/70">
@@ -110,6 +122,83 @@ export default function PatternsPage() {
           </Card>
         )}
 
+        {/* Current projects — patterns with an open progress row, most recent first */}
+        {patterns.length > 0 && (
+          <section className="mb-14">
+            <div className="mb-6">
+              <p className="mb-3 flex items-center gap-4 text-terracotta">
+                <span className="h-px w-10 bg-terracotta" aria-hidden="true" />
+                <span className="eyebrow">On the needles</span>
+              </p>
+              <h2 className="font-display text-4xl tracking-tight text-ink">Current Projects</h2>
+            </div>
+
+            {inProgress.length === 0 ? (
+              <Card className="p-8 text-center">
+                <p className="text-foreground/70">
+                  Nothing on the needles yet. Open a pattern and start tracking rows — it will
+                  show up here.
+                </p>
+              </Card>
+            ) : (
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                {inProgress.map((pattern) => (
+                  <Link key={pattern.id} href={`/patterns/${pattern.id}`}>
+                    <Card className="h-full border-transparent bg-terracotta p-6 text-parchment transition-colors hover:bg-terracotta-deep">
+                      <div className="flex items-start justify-between gap-3">
+                        <h3 className="font-display text-2xl tracking-tight">{pattern.name}</h3>
+                        <span className="eyebrow shrink-0 rounded-full bg-parchment/15 px-3 py-1">
+                          In progress
+                        </span>
+                      </div>
+
+                      {pattern.designer && (
+                        <p className="mt-2 text-sm text-parchment/75">by {pattern.designer}</p>
+                      )}
+
+                      <dl className="mt-6 space-y-1 text-sm text-parchment/75">
+                        {pattern.progress?.selected_size && (
+                          <div className="flex gap-2">
+                            <dt>Size</dt>
+                            <dd className="font-medium text-parchment">
+                              {pattern.progress.selected_size}
+                            </dd>
+                          </div>
+                        )}
+                        {pattern.progress?.row_counter !== undefined && (
+                          <div className="flex gap-2">
+                            <dt>Row</dt>
+                            <dd className="font-medium text-parchment">
+                              {pattern.progress.row_counter}
+                            </dd>
+                          </div>
+                        )}
+                        {pattern.progress?.completed_instructions?.length ? (
+                          <div className="flex gap-2">
+                            <dt>Steps done</dt>
+                            <dd className="font-medium text-parchment">
+                              {pattern.progress.completed_instructions.length}
+                            </dd>
+                          </div>
+                        ) : null}
+                      </dl>
+
+                      <div className="mt-6 flex items-center justify-between border-t border-parchment/20 pt-4 text-sm">
+                        <span className="text-parchment/70">
+                          {pattern.progress?.last_worked_at
+                            ? `Last worked ${new Date(pattern.progress.last_worked_at).toLocaleDateString()}`
+                            : 'Just started'}
+                        </span>
+                        <span className="font-medium">Resume →</span>
+                      </div>
+                    </Card>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
         {/* Patterns Grid */}
         {patterns.length === 0 ? (
           <Card className="p-12 text-center">
@@ -126,9 +215,13 @@ export default function PatternsPage() {
               </Button>
             </Link>
           </Card>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {patterns.map((pattern) => (
+        ) : restOfLibrary.length === 0 ? null : (
+          <section>
+            <h2 className="font-display text-4xl tracking-tight text-ink mb-6">
+              {inProgress.length > 0 ? 'The Rest of the Library' : 'All Patterns'}
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {restOfLibrary.map((pattern) => (
               <Link key={pattern.id} href={`/patterns/${pattern.id}`}>
                 <Card className="p-6 hover:shadow-lg transition-shadow cursor-pointer h-full">
                   <div className="flex items-start justify-between mb-3">
@@ -171,8 +264,9 @@ export default function PatternsPage() {
                   </div>
                 </Card>
               </Link>
-            ))}
-          </div>
+              ))}
+            </div>
+          </section>
         )}
       </main>
     </div>

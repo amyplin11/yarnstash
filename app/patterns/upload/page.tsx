@@ -2,10 +2,71 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { useUpload } from '@/lib/upload/UploadContext'
 import { Card } from '@/app/components/ui/Card'
 import { Button } from '@/app/components/ui/Button'
+import { TodayStamp } from '@/app/components/ui/TodayStamp'
+import {
+  CheckIcon,
+  CloseIcon,
+  CloudUploadIcon,
+  FileIcon,
+} from '@/app/components/ui/icons'
+
+const STEPS = ['Select file', 'Detect sizes', 'Process AI']
+
+function Spinner({ className = '' }: { className?: string }) {
+  return (
+    <svg className={`animate-spin ${className}`} fill="none" viewBox="0 0 24 24" aria-hidden="true">
+      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path
+        className="opacity-75"
+        fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+      />
+    </svg>
+  )
+}
+
+/** Horizontal progress rail: numbered discs joined by hairlines. */
+function Stepper({ active }: { active: number }) {
+  return (
+    <ol className="mx-auto mt-8 flex max-w-2xl items-start">
+      {STEPS.map((label, i) => {
+        const step = i + 1
+        const done = step < active
+        const current = step === active
+
+        return (
+          <li key={label} className="flex flex-1 flex-col items-center">
+            <div className="flex w-full items-center">
+              <span className={`h-px flex-1 ${i === 0 ? 'bg-transparent' : 'bg-line-strong'}`} />
+              <span
+                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full font-display text-xl ring-[5px] ring-surface ${
+                  done || current ? 'bg-sage text-parchment' : 'bg-sand-soft text-ink-soft'
+                }`}
+              >
+                {done ? <CheckIcon className="h-5 w-5" /> : step}
+              </span>
+              <span
+                className={`h-px flex-1 ${
+                  i === STEPS.length - 1 ? 'bg-transparent' : 'bg-line-strong'
+                }`}
+              />
+            </div>
+            <span
+              className={`eyebrow mt-3 text-center ${done || current ? 'text-ink' : 'text-ink-soft'}`}
+            >
+              {label}
+            </span>
+          </li>
+        )
+      })}
+    </ol>
+  )
+}
 
 export default function UploadPatternPage() {
   const { user } = useAuth()
@@ -49,14 +110,12 @@ export default function UploadPatternPage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Card className="p-8 max-w-md">
-          <p className="text-foreground/70 text-center">
-            Please sign in to upload patterns
-          </p>
+      <div className="flex min-h-screen items-center justify-center px-6">
+        <Card className="max-w-md p-8 text-center">
+          <p className="text-ink-muted">Please sign in to upload patterns</p>
           <Button
             variant="primary"
-            className="w-full mt-4"
+            className="mt-5 w-full"
             onClick={() => router.push('/auth/login')}
           >
             Sign In
@@ -72,252 +131,188 @@ export default function UploadPatternPage() {
   const isSuccess = upload.status === 'success'
   const isBusy = isUploading || isExtracting
 
-  // Step tracking: 1=select file, 2=upload & detect sizes, 3=choose size, 4=view
-  const currentStep = isSuccess
-    ? 4
+  // Three phases: pick the file, detect its sizes, then extract for the chosen one.
+  const activeStep = isSuccess || isExtracting ? 3 : isUploading || isSelectingSize ? 2 : 1
+
+  const copy = isSuccess
+    ? { title: 'Your pattern is ready', body: 'Taking you to it now.' }
     : isExtracting
-    ? 3
-    : isSelectingSize
-    ? 3
-    : file
-    ? 2
-    : 1
+      ? {
+          title: 'Processing with AI',
+          body: 'This usually takes 30–60 seconds. You can leave this page — it will keep going and be here when you get back.',
+        }
+      : isSelectingSize
+        ? {
+            title: 'Choose your size',
+            body: 'Instructions are extracted with every value resolved for your size — no more counting parentheses.',
+          }
+        : isUploading
+          ? { title: 'Detecting sizes', body: 'Scanning your pattern to find the sizes it offers.' }
+          : file
+            ? { title: 'Ready to upload', body: 'We’ll scan this pattern to find its available sizes.' }
+            : {
+                title: 'Select your PDF pattern',
+                body: 'Upload a PDF pattern and we’ll extract the instructions for your chosen size.',
+              }
 
   return (
-    <div className="min-h-screen bg-background">
-      <main className="container mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-12">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-foreground mb-2">
+    <main className="mx-auto max-w-5xl px-6 py-8 sm:px-10 lg:px-14">
+      {/*
+        Header. The date stamp and the cancel button sit on one row rather than
+        stacking: this page has to clear the fold on a 13" laptop, and a stacked
+        rail made the header taller than the title beside it for no gain.
+      */}
+      <section className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+        <div className="max-w-2xl">
+          <p className="mb-4 flex items-center gap-4 text-sage-deep">
+            <span className="h-px w-10 bg-sage-deep" aria-hidden="true" />
+            <span className="eyebrow">Pattern library</span>
+          </p>
+          <h1 className="font-display text-4xl leading-[1.05] tracking-[-0.02em] text-ink sm:text-[2.75rem]">
             Upload Knitting Pattern
           </h1>
-          <p className="text-foreground/70">
-            Upload a PDF pattern and we&apos;ll extract the instructions for your chosen size
-          </p>
         </div>
 
-        {/* File Validation Error */}
-        {fileError && (
-          <div className="mb-6 p-4 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg">
-            <p className="text-sm text-red-800 dark:text-red-300">{fileError}</p>
-          </div>
+        <div className="flex shrink-0 items-center gap-6">
+          <TodayStamp />
+          <Link
+            href="/patterns"
+            aria-label="Cancel and go back to your patterns"
+            title="Cancel"
+            className="flex h-12 w-12 items-center justify-center rounded-full bg-surface text-ink shadow-[0_1px_2px_rgba(28,26,23,0.05),0_10px_30px_-12px_rgba(28,26,23,0.3)] transition-colors hover:bg-ink hover:text-parchment"
+          >
+            <CloseIcon className="h-5 w-5" />
+          </Link>
+        </div>
+      </section>
+
+      <Stepper active={activeStep} />
+
+      {fileError && (
+        <div className="mx-auto mt-6 max-w-2xl rounded-2xl border border-clay-soft bg-clay-soft px-5 py-3 text-center">
+          <p className="text-sm font-medium text-clay">{fileError}</p>
+        </div>
+      )}
+
+      {/* The one card, whose contents follow the active step */}
+      <Card className="mt-8 rounded-[2rem] p-6 text-center sm:p-8">
+        <h2 className="font-display text-3xl tracking-tight text-ink">{copy.title}</h2>
+        <p className="mx-auto mt-2 max-w-xl text-ink-muted">{copy.body}</p>
+
+        {/* Step 1 — no file yet */}
+        {!file && !isBusy && !isSelectingSize && !isSuccess && (
+          <>
+            <input
+              type="file"
+              id="pdf-upload"
+              accept="application/pdf"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+            <label
+              htmlFor="pdf-upload"
+              className="mt-6 flex cursor-pointer flex-col items-center rounded-[1.75rem] border-2 border-dashed border-line-strong px-6 py-8 transition-colors hover:border-sage hover:bg-sage-soft/30"
+            >
+              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-surface text-sage-deep shadow-[0_1px_2px_rgba(28,26,23,0.05),0_14px_36px_-18px_rgba(28,26,23,0.4)]">
+                <CloudUploadIcon className="h-7 w-7" />
+              </span>
+              <span className="mt-4 text-lg font-medium text-ink">Click to select PDF</span>
+              <span className="mt-1 text-sm text-ink-soft">
+                Any knitting pattern in PDF format
+              </span>
+            </label>
+          </>
         )}
 
-        {/* Step 1: Select PDF */}
-        <Card className={`p-6 mb-4 transition-all ${currentStep === 1 ? 'ring-2 ring-teal-500' : ''}`}>
-          <div className="flex items-center gap-3 mb-4">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-              currentStep > 1
-                ? 'bg-teal-600 text-white'
-                : 'bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-300'
-            }`}>
-              {currentStep > 1 ? '\u2713' : '1'}
-            </div>
-            <h2 className="text-lg font-semibold text-foreground">
-              Select your PDF pattern
-            </h2>
-          </div>
-
-          {!file ? (
-            <div className="border-2 border-dashed border-foreground/20 rounded-lg p-8 text-center">
-              <input
-                type="file"
-                id="pdf-upload"
-                accept="application/pdf"
-                onChange={handleFileChange}
-                className="hidden"
-                disabled={isBusy}
-              />
-              <label
-                htmlFor="pdf-upload"
-                className="cursor-pointer flex flex-col items-center"
-              >
-                <div className="w-16 h-16 rounded-full bg-teal-50 dark:bg-teal-950/30 flex items-center justify-center mb-4">
-                  <svg className="w-8 h-8 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                  </svg>
-                </div>
-                <p className="text-lg font-medium text-foreground mb-1">
-                  Click to select PDF
-                </p>
-                <p className="text-sm text-foreground/50">
-                  Any knitting pattern in PDF format
-                </p>
-              </label>
-            </div>
-          ) : (
-            <div className="flex items-center justify-between p-4 bg-teal-50 dark:bg-teal-950/20 rounded-lg">
-              <div className="flex items-center gap-3">
-                <svg className="w-8 h-8 text-teal-600 dark:text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <div>
-                  <p className="font-medium text-foreground">{file.name}</p>
-                  <p className="text-sm text-foreground/60">
+        {/* Step 1 — file chosen, ready to send */}
+        {file && !isBusy && !isSelectingSize && !isSuccess && (
+          <div className="mx-auto mt-6 max-w-xl">
+            <div className="flex items-center justify-between gap-4 rounded-2xl bg-parchment px-5 py-4 text-left">
+              <div className="flex min-w-0 items-center gap-3">
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-sage-soft text-sage-deep">
+                  <FileIcon className="h-5 w-5" />
+                </span>
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-ink">{file.name}</p>
+                  <p className="text-sm text-ink-soft">
                     {(file.size / 1024 / 1024).toFixed(2)} MB
                   </p>
                 </div>
               </div>
-              {!isBusy && !isSuccess && !isSelectingSize && (
-                <button
-                  onClick={handleRemoveFile}
-                  className="text-sm text-foreground/50 hover:text-foreground transition-colors px-3 py-1 rounded"
-                >
-                  Change
-                </button>
-              )}
+              <button
+                onClick={handleRemoveFile}
+                className="shrink-0 rounded-full px-3 py-1 text-sm text-ink-soft transition-colors hover:text-ink"
+              >
+                Change
+              </button>
             </div>
-          )}
-        </Card>
 
-        {/* Step 2: Upload & Detect Sizes */}
-        <Card className={`p-6 mb-4 transition-all ${
-          currentStep === 2 ? 'ring-2 ring-teal-500' : ''
-        } ${currentStep < 2 ? 'opacity-50' : ''}`}>
-          <div className="flex items-center gap-3 mb-4">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-              currentStep > 2
-                ? 'bg-teal-600 text-white'
-                : currentStep === 2
-                ? 'bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-300'
-                : 'bg-foreground/10 text-foreground/40'
-            }`}>
-              {currentStep > 2 ? '\u2713' : '2'}
-            </div>
-            <h2 className="text-lg font-semibold text-foreground">
-              Upload & detect sizes
-            </h2>
-          </div>
-
-          <p className="text-sm text-foreground/70 mb-4">
-            We&apos;ll scan your pattern to find the available sizes so you can choose yours.
-          </p>
-
-          {isUploading ? (
-            <div className="text-center py-4">
-              <div className="inline-flex items-center gap-3 px-6 py-3 bg-teal-50 dark:bg-teal-950/20 rounded-lg">
-                <svg className="w-5 h-5 text-teal-600 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                <span className="text-sm font-medium text-teal-700 dark:text-teal-300">
-                  Uploading and detecting sizes...
-                </span>
-              </div>
-            </div>
-          ) : currentStep === 2 ? (
             <Button
               variant="primary"
               size="lg"
-              className="w-full"
+              className="mt-5 w-full"
               onClick={handleUpload}
-              disabled={!file || isBusy}
+              disabled={isBusy}
             >
               Upload Pattern
             </Button>
-          ) : null}
-        </Card>
-
-        {/* Step 3: Choose Size / Process */}
-        <Card className={`p-6 mb-4 transition-all ${
-          currentStep === 3 ? 'ring-2 ring-teal-500' : ''
-        } ${currentStep < 3 ? 'opacity-50' : ''}`}>
-          <div className="flex items-center gap-3 mb-4">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-              currentStep > 3
-                ? 'bg-teal-600 text-white'
-                : currentStep === 3
-                ? 'bg-teal-100 dark:bg-teal-900 text-teal-700 dark:text-teal-300'
-                : 'bg-foreground/10 text-foreground/40'
-            }`}>
-              {currentStep > 3 ? '\u2713' : '3'}
-            </div>
-            <h2 className="text-lg font-semibold text-foreground">
-              {isSelectingSize ? 'Choose your size' : 'Process with AI'}
-            </h2>
           </div>
+        )}
 
-          {isSelectingSize && upload.sizes && (
-            <>
-              <p className="text-sm text-foreground/70 mb-4">
-                Select the size you want to make. Instructions will be extracted with all values resolved for your size — no more counting parentheses!
-              </p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                {upload.sizes.map((size) => (
-                  <button
-                    key={size}
-                    onClick={() => upload.selectSize(size)}
-                    className="px-4 py-3 rounded-lg border-2 border-foreground/15 hover:border-teal-500 hover:bg-teal-50 dark:hover:bg-teal-950/20 text-foreground font-medium transition-all text-center"
-                  >
-                    {size}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-
-          {isExtracting && (
-            <div className="text-center py-4">
-              <div className="inline-flex items-center gap-3 px-6 py-3 bg-teal-50 dark:bg-teal-950/20 rounded-lg">
-                <svg className="w-5 h-5 text-teal-600 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                </svg>
-                <span className="text-sm font-medium text-teal-700 dark:text-teal-300">
-                  Extracting pattern{upload.selectedSize ? ` for size ${upload.selectedSize}` : ''}
-                  ... this usually takes 30-60 seconds. You can leave this page — it&apos;ll keep
-                  going and be here when you get back.
-                </span>
-              </div>
-            </div>
-          )}
-
-          {currentStep < 3 && (
-            <p className="text-sm text-foreground/50">
-              Upload your pattern first to see available sizes.
-            </p>
-          )}
-        </Card>
-
-        {/* Step 4: Success */}
-        <Card className={`p-6 mb-4 transition-all ${
-          currentStep === 4 ? 'ring-2 ring-teal-500' : 'opacity-50'
-        }`}>
-          <div className="flex items-center gap-3">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-              currentStep === 4
-                ? 'bg-teal-600 text-white'
-                : 'bg-foreground/10 text-foreground/40'
-            }`}>
-              {currentStep === 4 ? '\u2713' : '4'}
-            </div>
-            <h2 className="text-lg font-semibold text-foreground">
-              View your pattern
-            </h2>
+        {/* Step 2 — choosing a size */}
+        {isSelectingSize && upload.sizes && (
+          <div className="mx-auto mt-6 grid max-w-2xl grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+            {upload.sizes.map((size) => (
+              <button
+                key={size}
+                onClick={() => upload.selectSize(size)}
+                className="rounded-2xl border border-line-strong px-4 py-3.5 font-medium text-ink transition-colors hover:border-sage hover:bg-sage-soft"
+              >
+                {size}
+              </button>
+            ))}
           </div>
+        )}
 
-          {isSuccess && (
-            <div className="mt-4 p-4 bg-green-50 dark:bg-green-950/20 rounded-lg">
-              <p className="font-medium text-green-800 dark:text-green-300">
-                Pattern uploaded and processed successfully!
-              </p>
-              <p className="text-sm text-green-700 dark:text-green-400 mt-1">
-                Redirecting to your pattern...
-              </p>
-            </div>
-          )}
-        </Card>
+        {/* Working states */}
+        {isBusy && (
+          <div className="mt-6 flex items-center justify-center gap-3 text-sage-deep">
+            <Spinner className="h-5 w-5" />
+            <span className="text-sm font-medium">
+              {isUploading
+                ? 'Uploading and detecting sizes…'
+                : `Extracting${upload.selectedSize ? ` size ${upload.selectedSize}` : ''}…`}
+            </span>
+          </div>
+        )}
 
-        {/* Tips */}
-        <Card className="p-6 mt-6 bg-teal-50 dark:bg-teal-950/20 border-teal-200 dark:border-teal-800">
-          <h3 className="font-semibold text-foreground mb-2">Tips for best results</h3>
-          <ul className="text-sm text-foreground/80 space-y-1 list-disc list-inside">
-            <li>Use clear, well-formatted PDF patterns</li>
-            <li>Patterns with standard knitting abbreviations work best</li>
-            <li>Charts, colorwork, and multi-size patterns are all supported</li>
-            <li>After choosing your size, all stitch counts will be resolved — no more guessing!</li>
-          </ul>
-        </Card>
-      </main>
-    </div>
+        {isSuccess && (
+          <div className="mt-6 inline-flex items-center gap-3 rounded-full bg-sage-soft px-5 py-3 text-sage-deep">
+            <CheckIcon className="h-5 w-5" />
+            <span className="text-sm font-medium">Pattern uploaded and processed</span>
+          </div>
+        )}
+      </Card>
+
+      {/* Tips — a footnote strip under a hairline rather than a padded panel:
+          two columns cost two lines of height instead of four, which is what
+          keeps the whole flow above the fold on a 13" laptop. */}
+      <section className="mt-7 border-t border-line pt-5">
+        <h3 className="eyebrow text-sage-deep">Tips for best results</h3>
+        <ul className="mt-3 grid gap-x-8 gap-y-2 text-sm text-ink-muted sm:grid-cols-2">
+          {[
+            'Use clear, well-formatted PDF patterns',
+            'Patterns with standard knitting abbreviations work best',
+            'Charts, colorwork, and multi-size patterns are all supported',
+            'After choosing your size, all stitch counts are resolved for you',
+          ].map((tip) => (
+            <li key={tip} className="flex items-start gap-2.5">
+              <CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-sage-deep" />
+              <span>{tip}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+    </main>
   )
 }

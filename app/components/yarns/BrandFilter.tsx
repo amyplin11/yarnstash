@@ -113,8 +113,8 @@ export function BrandFilter({ selected, onChange }: BrandFilterProps) {
         </Button>
 
         {open && (
-          <div className="absolute z-20 mt-1 w-80 rounded-lg border border-foreground/20 bg-background shadow-lg">
-            <div className="p-2 border-b border-foreground/10">
+          <div className="absolute z-20 mt-2 w-80 overflow-hidden rounded-2xl border border-line bg-surface shadow-[0_24px_60px_-30px_rgba(28,26,23,0.55)]">
+            <div className="p-2 border-b border-line">
               <input
                 ref={searchRef}
                 type="text"
@@ -124,19 +124,19 @@ export function BrandFilter({ selected, onChange }: BrandFilterProps) {
                   if (event.key === 'Escape') setOpen(false)
                 }}
                 placeholder={
-                  total > 0 ? `Search ${total.toLocaleString()} brands...` : 'Search brands...'
+                  total > 0 ? `Search ${total.toLocaleString()} brands…` : 'Search brands…'
                 }
-                className="w-full px-3 py-2 rounded border border-foreground/20 bg-background text-foreground text-sm placeholder-foreground/50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="w-full rounded-xl border border-line-strong bg-parchment px-3 py-2 text-sm text-ink placeholder-ink-soft focus:outline-none focus:ring-2 focus:ring-terracotta"
               />
             </div>
 
             <div className="max-h-72 overflow-y-auto py-1">
               {loading ? (
-                <p className="px-3 py-2 text-sm text-foreground/60">Loading brands...</p>
+                <p className="px-3 py-2 text-sm text-ink-soft">Loading brands…</p>
               ) : error ? (
-                <p className="px-3 py-2 text-sm text-foreground/60">{error}</p>
+                <p className="px-3 py-2 text-sm text-ink-soft">{error}</p>
               ) : brands.length === 0 ? (
-                <p className="px-3 py-2 text-sm text-foreground/60">No brands match that search.</p>
+                <p className="px-3 py-2 text-sm text-ink-soft">No brands match that search.</p>
               ) : (
                 brands.map((brand) => {
                   const isSelected = selected.includes(brand.name)
@@ -144,18 +144,18 @@ export function BrandFilter({ selected, onChange }: BrandFilterProps) {
                   return (
                     <label
                       key={brand.name}
-                      className="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-foreground/5"
+                      className="flex items-center gap-2 px-3 py-2 cursor-pointer transition-colors hover:bg-parchment"
                     >
                       <input
                         type="checkbox"
                         checked={isSelected}
                         onChange={() => toggleBrand(brand.name)}
-                        className="accent-teal-600"
+                        className="accent-terracotta"
                       />
-                      <span className="flex-1 min-w-0 truncate text-sm text-foreground">
+                      <span className="flex-1 min-w-0 truncate text-sm text-ink">
                         {brand.name}
                       </span>
-                      <span className="text-xs text-foreground/50 shrink-0">
+                      <span className="text-xs text-ink-soft shrink-0">
                         {brand.count.toLocaleString()}
                       </span>
                     </label>
@@ -165,7 +165,7 @@ export function BrandFilter({ selected, onChange }: BrandFilterProps) {
             </div>
 
             {selected.length > 0 && (
-              <div className="p-2 border-t border-foreground/10">
+              <div className="p-2 border-t border-line">
                 <Button variant="secondary" size="sm" onClick={() => onChange([])} className="w-full">
                   Clear brand filter
                 </Button>
@@ -183,7 +183,7 @@ export function BrandFilter({ selected, onChange }: BrandFilterProps) {
               key={brand}
               type="button"
               onClick={() => toggleBrand(brand)}
-              className="inline-flex items-center gap-1.5 max-w-full px-2.5 py-1 rounded-full bg-teal-100 dark:bg-teal-900/40 text-teal-900 dark:text-teal-100 text-xs hover:bg-teal-200 dark:hover:bg-teal-900/70"
+              className="inline-flex items-center gap-1.5 max-w-full rounded-full bg-terracotta-soft px-3 py-1 text-xs font-medium text-terracotta-deep transition-colors hover:bg-terracotta hover:text-parchment"
               aria-label={`Remove ${brand} filter`}
             >
               <span className="truncate">{brand}</span>

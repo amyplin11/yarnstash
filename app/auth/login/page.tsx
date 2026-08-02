@@ -10,7 +10,7 @@ import { FeedbackLink } from '@/app/components/feedback/FeedbackButton'
 
 type Mode = 'signin' | 'signup' | 'forgot'
 
-const feedbackLinkStyles = 'text-teal-600 dark:text-teal-400 hover:underline'
+const feedbackLinkStyles = 'text-terracotta dark:text-terracotta hover:underline'
 
 export default function LoginPage() {
   const [mode, setMode] = useState<Mode>('signin')
@@ -84,7 +84,7 @@ export default function LoginPage() {
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md p-8">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-foreground mb-2">🧶 YarnStash</h1>
+            <h1 className="font-display text-3xl tracking-tight text-ink mb-2">YarnStash</h1>
             <p className="text-foreground/70">Reset your password</p>
           </div>
 
@@ -116,7 +116,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-4 py-3 rounded-lg border border-foreground/20 bg-background text-foreground placeholder-foreground/50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="w-full px-4 py-3 rounded-lg border border-foreground/20 bg-background text-foreground placeholder-foreground/50 focus:outline-none focus:ring-2 focus:ring-terracotta"
                 placeholder="you@example.com"
               />
               <p className="text-xs text-foreground/60 mt-1">
@@ -133,7 +133,7 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => switchMode('signin')}
-              className="text-sm text-teal-600 dark:text-teal-400 hover:underline"
+              className="text-sm text-terracotta dark:text-terracotta hover:underline"
             >
               Back to sign in
             </button>
@@ -156,8 +156,8 @@ export default function LoginPage() {
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md p-8">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-foreground mb-2">
-              🧶 YarnStash
+            <h1 className="font-display text-3xl tracking-tight text-ink mb-2">
+              YarnStash
             </h1>
             <p className="text-foreground/70">Welcome back!</p>
           </div>
@@ -181,7 +181,7 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-4 py-3 rounded-lg border border-foreground/20 bg-background text-foreground placeholder-foreground/50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="w-full px-4 py-3 rounded-lg border border-foreground/20 bg-background text-foreground placeholder-foreground/50 focus:outline-none focus:ring-2 focus:ring-terracotta"
                 placeholder="you@example.com"
               />
             </div>
@@ -194,7 +194,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => switchMode('forgot')}
-                  className="text-sm text-teal-600 dark:text-teal-400 hover:underline"
+                  className="text-sm text-terracotta dark:text-terracotta hover:underline"
                 >
                   Forgot password?
                 </button>
@@ -208,7 +208,7 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={6}
-                className="w-full px-4 py-3 rounded-lg border border-foreground/20 bg-background text-foreground placeholder-foreground/50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                className="w-full px-4 py-3 rounded-lg border border-foreground/20 bg-background text-foreground placeholder-foreground/50 focus:outline-none focus:ring-2 focus:ring-terracotta"
                 placeholder="Enter your password"
               />
             </div>
@@ -222,7 +222,7 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => switchMode('signup')}
-              className="text-sm text-teal-600 dark:text-teal-400 hover:underline"
+              className="text-sm text-terracotta dark:text-terracotta hover:underline"
             >
               Don&apos;t have an account? Sign up
             </button>
@@ -241,13 +241,13 @@ export default function LoginPage() {
 
   // Sign Up View (New Fun Design!)
   return (
-    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-purple-50 to-pink-50 dark:from-gray-900 dark:via-teal-900/20 dark:to-purple-900/20 p-4 py-12">
+    <div className="min-h-screen bg-parchment p-4 py-12">
       <div className="container mx-auto max-w-6xl">
         <div className="grid md:grid-cols-2 gap-8 items-center">
           {/* Left Side - Features */}
           <div className="space-y-8">
             <div>
-              <h1 className="text-5xl font-bold text-foreground mb-4">
+              <h1 className="font-display text-5xl leading-tight tracking-tight text-ink mb-4">
                 Join YarnStash! 🎉
               </h1>
               <p className="text-xl text-foreground/80">
@@ -340,7 +340,7 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
-                  className="w-full px-4 py-3 rounded-lg border border-foreground/20 bg-background text-foreground placeholder-foreground/50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className="w-full px-4 py-3 rounded-lg border border-foreground/20 bg-background text-foreground placeholder-foreground/50 focus:outline-none focus:ring-2 focus:ring-terracotta"
                   placeholder="you@example.com"
                 />
               </div>
@@ -358,7 +358,7 @@ export default function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={6}
-                  className="w-full px-4 py-3 rounded-lg border border-foreground/20 bg-background text-foreground placeholder-foreground/50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  className="w-full px-4 py-3 rounded-lg border border-foreground/20 bg-background text-foreground placeholder-foreground/50 focus:outline-none focus:ring-2 focus:ring-terracotta"
                   placeholder="Choose a password"
                 />
                 <p className="text-xs text-foreground/60 mt-1">At least 6 characters</p>
@@ -373,7 +373,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => switchMode('signin')}
-                className="text-sm text-teal-600 dark:text-teal-400 hover:underline"
+                className="text-sm text-terracotta dark:text-terracotta hover:underline"
               >
                 Already have an account? Sign in
               </button>

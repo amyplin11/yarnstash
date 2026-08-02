@@ -187,15 +187,15 @@ export function SearchAutocomplete({
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => selectOption(option)}
         className={`flex items-center gap-3 px-4 py-2 cursor-pointer ${
-          isHighlighted ? 'bg-teal-50 dark:bg-teal-950/40' : ''
+          isHighlighted ? 'bg-parchment-deep' : ''
         }`}
       >
         {option.kind === 'brand' ? (
           <>
-            <span className="flex-1 min-w-0 truncate text-sm font-medium text-foreground">
+            <span className="flex-1 min-w-0 truncate text-sm font-medium text-ink">
               {option.brand.name}
             </span>
-            <span className="text-xs text-foreground/50 shrink-0">
+            <span className="text-xs text-ink-soft shrink-0">
               {option.brand.count.toLocaleString()} yarns
             </span>
           </>
@@ -205,18 +205,18 @@ export function SearchAutocomplete({
               <img
                 src={option.yarn.imageUrl}
                 alt=""
-                className="w-9 h-9 rounded object-cover shrink-0"
+                className="w-9 h-9 rounded-lg object-cover shrink-0"
               />
             ) : (
-              <div className="w-9 h-9 rounded bg-foreground/10 shrink-0" />
+              <div className="w-9 h-9 rounded-lg bg-parchment-deep shrink-0" />
             )}
             <span className="flex-1 min-w-0">
-              <span className="block truncate text-sm text-foreground">{option.yarn.name}</span>
-              <span className="block truncate text-xs text-foreground/60">
+              <span className="block truncate text-sm text-ink">{option.yarn.name}</span>
+              <span className="block truncate text-xs text-ink-soft">
                 {option.yarn.brand || 'Unknown brand'}
               </span>
             </span>
-            <span className="text-xs text-foreground/50 shrink-0">{option.yarn.weight}</span>
+            <span className="text-xs text-ink-soft shrink-0">{option.yarn.weight}</span>
           </>
         )}
       </li>
@@ -243,15 +243,15 @@ export function SearchAutocomplete({
           }}
           onFocus={() => setOpen(true)}
           onKeyDown={handleKeyDown}
-          className="w-full px-4 py-3 rounded-lg border border-foreground/20 bg-background text-foreground placeholder-foreground/50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+          className="w-full rounded-2xl border border-line-strong bg-parchment px-4 py-3 text-ink placeholder-ink-soft focus:outline-none focus:ring-2 focus:ring-terracotta"
         />
 
         {showDropdown && (
-          <div className="absolute z-20 mt-1 w-full rounded-lg border border-foreground/20 bg-background shadow-lg overflow-hidden">
+          <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl border border-line bg-surface shadow-[0_24px_60px_-30px_rgba(28,26,23,0.55)]">
             {loading && options.length === 0 ? (
-              <p className="px-4 py-3 text-sm text-foreground/60">Searching...</p>
+              <p className="px-4 py-3 text-sm text-ink-soft">Searching the catalog…</p>
             ) : showEmptyState ? (
-              <p className="px-4 py-3 text-sm text-foreground/60">
+              <p className="px-4 py-3 text-sm text-ink-soft">
                 No matches. Press Enter to search anyway.
               </p>
             ) : (
@@ -264,7 +264,7 @@ export function SearchAutocomplete({
                 {suggestions.brands.length > 0 && (
                   <li
                     role="presentation"
-                    className="px-4 pt-2 pb-1 text-xs uppercase tracking-wide text-foreground/50"
+                    className="px-4 pt-3 pb-1 text-xs uppercase tracking-wide text-ink-soft"
                   >
                     Filter by brand
                   </li>
@@ -274,7 +274,7 @@ export function SearchAutocomplete({
                 {suggestions.yarns.length > 0 && (
                   <li
                     role="presentation"
-                    className="px-4 pt-2 pb-1 text-xs uppercase tracking-wide text-foreground/50"
+                    className="px-4 pt-3 pb-1 text-xs uppercase tracking-wide text-ink-soft"
                   >
                     Yarns
                   </li>

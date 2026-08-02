@@ -112,7 +112,7 @@ export default function ResetPasswordPage() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="w-full max-w-md p-8">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">🧶 YarnStash</h1>
+          <h1 className="font-display text-3xl tracking-tight text-ink mb-2">YarnStash</h1>
           <p className="text-foreground/70">Choose a new password</p>
         </div>
         {children}
@@ -121,7 +121,7 @@ export default function ResetPasswordPage() {
           Something not working?{' '}
           <FeedbackLink
             topic="password reset"
-            className="text-teal-600 dark:text-teal-400 hover:underline"
+            className="text-terracotta dark:text-terracotta hover:underline"
           >
             Send feedback
           </FeedbackLink>
@@ -190,7 +190,7 @@ export default function ResetPasswordPage() {
             onChange={(e) => setPassword(e.target.value)}
             required
             minLength={6}
-            className="w-full px-4 py-3 rounded-lg border border-foreground/20 bg-background text-foreground placeholder-foreground/50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="w-full px-4 py-3 rounded-lg border border-foreground/20 bg-background text-foreground placeholder-foreground/50 focus:outline-none focus:ring-2 focus:ring-terracotta"
             placeholder="Choose a new password"
           />
           <p className="text-xs text-foreground/60 mt-1">At least 6 characters</p>
@@ -212,7 +212,7 @@ export default function ResetPasswordPage() {
             onChange={(e) => setConfirm(e.target.value)}
             required
             minLength={6}
-            className="w-full px-4 py-3 rounded-lg border border-foreground/20 bg-background text-foreground placeholder-foreground/50 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="w-full px-4 py-3 rounded-lg border border-foreground/20 bg-background text-foreground placeholder-foreground/50 focus:outline-none focus:ring-2 focus:ring-terracotta"
             placeholder="Re-enter your new password"
           />
         </div>
