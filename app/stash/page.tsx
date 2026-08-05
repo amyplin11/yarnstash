@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { StashYarn } from '@/lib/types'
 import { YarnGrid } from '@/app/components/yarns/YarnGrid'
 import { YarnTable } from '@/app/components/yarns/YarnTable'
@@ -195,9 +194,6 @@ export default function StashPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <Link href="/yarns">
-              <Button variant="secondary">Browse catalog</Button>
-            </Link>
             <Button variant="primary" onClick={() => setAddOpen(true)}>
               <PlusIcon className="h-4 w-4" />
               Add Yarn
