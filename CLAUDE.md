@@ -103,7 +103,11 @@ Types are in `lib/types/` and re-exported from `lib/types/index.ts`:
 
 `lib/auth/AuthContext.tsx` provides `AuthProvider` and `useAuth()` hook. Wraps the entire app in `layout.tsx`. Uses Supabase email/password auth.
 
-**No middleware.ts exists yet.** Route protection is currently client-side only (pages check auth and redirect). A Next.js middleware for server-side auth guard is a planned improvement.
+`middleware.ts` guards routing: a signed-out visitor can reach only `/`, `/auth/login`, and `/auth/reset-password`; every other page redirects to login before it renders. It reads the Supabase session cookie directly (deriving `sb-<ref>-auth-token` from `NEXT_PUBLIC_SUPABASE_URL`, matching the storage adapters in `lib/supabase/`) and checks expiry locally — no network call per navigation. An unreadable cookie counts as signed out, so a hand-set junk cookie cannot walk past it.
+
+`/api/*` is deliberately exempt: those routes authenticate themselves and answer `401` in JSON, and redirecting them to an HTML login page would break that contract.
+
+Treat the middleware as a routing gate, not the security boundary. Real enforcement remains RLS on every user-scoped table plus the per-route `createServerClient()` + `getUser()` checks. Pages still run their own `useAuth()` checks, which now act as a second layer rather than the only one.
 
 ### Environment variables
 
@@ -157,8 +161,8 @@ Return `401` for unauthenticated, `400` for bad input, `404` for missing resourc
 
 These are documented so Claude knows the current state and can suggest or implement them when relevant:
 
-- **No middleware.ts** — Auth is client-side only; needs server-side route protection
-- **No test framework** — Vitest is the planned choice (fast, ESM-native, works well with Next.js)
+- **No test framework** — Vitest is the planned choice (fast, ESM-native, works well with Next.js). The middleware route guard is the obvious first thing to cover: its table of path × cookie-state → redirect is pure and easy to assert.
+- **Login ignores the intended destination** — the route guard redirects to `/auth/login`, and login always lands on `/stash` afterwards, so a visitor bounced from `/yarns` does not return there. Wiring a `redirectTo` param through the login page would close the loop.
 - **No CI/CD** — No GitHub Actions; lint + typecheck + build should run on PRs
 - **No Prettier** — Only ESLint; formatting is not enforced
 - **No error boundaries** — No React error boundary components for graceful crash recovery
