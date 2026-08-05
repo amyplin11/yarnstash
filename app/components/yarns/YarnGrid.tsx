@@ -1,5 +1,6 @@
 import { Yarn, StashYarn } from '@/lib/types'
 import { YarnCard } from './YarnCard'
+import { YarnEmpty } from './YarnEmpty'
 
 interface YarnGridProps {
   yarns: (Yarn | StashYarn)[]
@@ -19,17 +20,7 @@ export function YarnGrid({
   emptyMessage = 'No yarns found.',
 }: YarnGridProps) {
   if (yarns.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <div className="text-6xl mb-4">🧶</div>
-        <h3 className="text-xl font-semibold text-foreground mb-2">
-          {emptyMessage}
-        </h3>
-        <p className="text-foreground/70 max-w-md">
-          Browse yarns and add them to your stash!
-        </p>
-      </div>
-    )
+    return <YarnEmpty message={emptyMessage} />
   }
 
   return (

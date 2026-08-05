@@ -5,12 +5,20 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { StashYarn } from '@/lib/types'
 import { YarnGrid } from '@/app/components/yarns/YarnGrid'
+import { YarnTable } from '@/app/components/yarns/YarnTable'
 import { AddYarnDialog } from '@/app/components/yarns/AddYarnDialog'
+import { setStashView, useStashView } from '@/app/components/yarns/stashViewState'
 import { Card } from '@/app/components/ui/Card'
 import { YarnWeight } from '@/lib/types'
 import { Button } from '@/app/components/ui/Button'
-import { PlusIcon } from '@/app/components/ui/icons'
+import { ViewToggle } from '@/app/components/ui/ViewToggle'
+import { GridIcon, PlusIcon, TableIcon } from '@/app/components/ui/icons'
 import { useAuth } from '@/lib/auth/AuthContext'
+
+const VIEW_OPTIONS = [
+  { value: 'cards' as const, label: 'Cards', icon: GridIcon },
+  { value: 'table' as const, label: 'Table', icon: TableIcon },
+]
 
 export default function StashPage() {
   const { user, loading: authLoading } = useAuth()
@@ -20,6 +28,7 @@ export default function StashPage() {
   const [error, setError] = useState<string | null>(null)
   const [weightFilter, setWeightFilter] = useState<YarnWeight | 'all'>('all')
   const [addOpen, setAddOpen] = useState(false)
+  const view = useStashView()
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -103,17 +112,6 @@ export default function StashPage() {
     ? stashYarns
     : stashYarns.filter(stashYarn => stashYarn.yarn.weight === weightFilter)
 
-  // Calculate stats
-  const totalSkeins = stashYarns.reduce((sum, yarn) => sum + yarn.skeins, 0)
-  const totalYardage = stashYarns.reduce(
-    (sum, yarn) => sum + (yarn.yarn.yardage * yarn.skeins),
-    0
-  )
-  const totalValue = stashYarns.reduce(
-    (sum, yarn) => sum + (yarn.purchasePrice || 0),
-    0
-  )
-
   const weights: (YarnWeight | 'all')[] = [
     'all', 'lace', 'fingering', 'sport', 'dk', 'worsted', 'aran', 'bulky', 'super-bulky', 'jumbo'
   ]
@@ -154,40 +152,26 @@ export default function StashPage() {
           </Card>
         )}
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          <Card className="p-6">
-            <div className="text-sm text-foreground/70 mb-1">Total Skeins</div>
-            <div className="text-3xl font-bold text-terracotta dark:text-terracotta">
-              {totalSkeins}
-            </div>
-          </Card>
-          <Card className="p-6">
-            <div className="text-sm text-foreground/70 mb-1">Total Yardage</div>
-            <div className="text-3xl font-bold text-sage-deep dark:text-sage-deep">
-              {totalYardage.toLocaleString()} yds
-            </div>
-          </Card>
-          <Card className="p-6">
-            <div className="text-sm text-foreground/70 mb-1">Estimated Value</div>
-            <div className="text-3xl font-bold text-honey">
-              ${totalValue.toFixed(2)}
-            </div>
-          </Card>
-        </div>
-
-        {/* Weight Filter */}
-        <div className="flex flex-wrap gap-2 mb-8">
-          {weights.map((weight) => (
-            <Button
-              key={weight}
-              variant={weightFilter === weight ? 'primary' : 'secondary'}
-              size="sm"
-              onClick={() => setWeightFilter(weight)}
-            >
-              {weight === 'all' ? 'All Weights' : weight}
-            </Button>
-          ))}
+        {/* Weight filter, with the card/table switch trailing it */}
+        <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+          <div className="flex flex-wrap gap-2">
+            {weights.map((weight) => (
+              <Button
+                key={weight}
+                variant={weightFilter === weight ? 'primary' : 'secondary'}
+                size="sm"
+                onClick={() => setWeightFilter(weight)}
+              >
+                {weight === 'all' ? 'All Weights' : weight}
+              </Button>
+            ))}
+          </div>
+          <ViewToggle
+            value={view}
+            onChange={setStashView}
+            options={VIEW_OPTIONS}
+            label="Stash view"
+          />
         </div>
 
         {/* Loading State */}
@@ -196,8 +180,14 @@ export default function StashPage() {
             <div className="text-6xl mb-4 animate-bounce">🧶</div>
             <p className="text-foreground/70">Loading your stash...</p>
           </div>
+        ) : view === 'table' ? (
+          <YarnTable
+            yarns={filteredStash}
+            editable={true}
+            onDelete={handleDelete}
+            emptyMessage="Your stash is empty."
+          />
         ) : (
-          /* Stash Grid */
           <YarnGrid
             yarns={filteredStash}
             editable={true}

@@ -2,9 +2,19 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Button } from '@/app/components/ui/Button'
-import { CameraIcon, CheckIcon, CloseIcon } from '@/app/components/ui/icons'
+import {
+  ArrowLeftIcon,
+  CameraIcon,
+  CheckIcon,
+  CloseIcon,
+  FileIcon,
+  SearchIcon,
+} from '@/app/components/ui/icons'
 import { FEEDBACK_EMAIL } from '@/app/components/feedback/FeedbackButton'
+import { ReceiptImport } from './ReceiptImport'
 import { useAuth } from '@/lib/auth/AuthContext'
+import { toUploadableJpeg } from '@/lib/images/to-jpeg'
+import { pickExactMatch, searchCatalog } from '@/lib/yarns/match'
 import { catalogYarnToYarn, type CatalogYarn } from '@/lib/types'
 
 /** Details that belong to this skein, not to the catalog entry. */
@@ -17,57 +27,27 @@ const EMPTY = {
   notes: '',
 }
 
+/** Which way the user chose to find their yarn. */
+type Mode = 'choose' | 'photo' | 'search' | 'receipt'
+
 const fieldStyles =
   'w-full rounded-2xl border border-line-strong bg-parchment px-4 py-3 text-ink placeholder-ink-soft focus:outline-none focus:ring-2 focus:ring-terracotta'
 
-/** Loose comparison so "Malabrigo!" and "malabrigo" count as the same brand. */
-function normalize(value: string | null | undefined) {
-  return (value ?? '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
-}
-
 /**
- * Ball bands print the trading name, the catalog stores the company name —
- * "Malabrigo" on the label vs "Malabrigo Yarn" in the import. Containment
- * bridges that; the yarn name itself still has to match outright.
+ * Blank optional fields have to travel as null, not "". `purchase_price` is
+ * numeric and `purchase_date` is a date, and Postgres rejects an empty string
+ * for both — which is most saves, since few people fill either in.
  */
-function brandMatches(a: string | null | undefined, b: string | null | undefined) {
-  const x = normalize(a)
-  const y = normalize(b)
-  return x.length > 0 && y.length > 0 && (x.includes(y) || y.includes(x))
+function optionalText(value: string) {
+  const trimmed = value.trim()
+  return trimmed === '' ? null : trimmed
 }
 
-/** Longest edge sent to the API. Enough for label text without 12MP of noise. */
-const MAX_EDGE = 2000
-
-/**
- * Re-encode whatever the picker handed us as JPEG.
- *
- * iPhones shoot HEIC, which the Messages API doesn't accept — but Apple
- * platforms can *decode* it, so drawing to a canvas and exporting JPEG makes
- * those photos usable. It also honours the EXIF rotation (a sideways label
- * reads badly) and shrinks a 12MP photo to something worth uploading.
- */
-async function toJpeg(file: File): Promise<File> {
-  const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' })
-  const scale = Math.min(1, MAX_EDGE / Math.max(bitmap.width, bitmap.height))
-  const canvas = document.createElement('canvas')
-  canvas.width = Math.round(bitmap.width * scale)
-  canvas.height = Math.round(bitmap.height * scale)
-
-  const ctx = canvas.getContext('2d')
-  if (!ctx) throw new Error('Could not read that image')
-  ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
-  bitmap.close()
-
-  const blob = await new Promise<Blob | null>((resolve) =>
-    canvas.toBlob(resolve, 'image/jpeg', 0.85)
-  )
-  if (!blob) throw new Error('Could not read that image')
-  return new File([blob], 'label.jpg', { type: 'image/jpeg' })
-}
-
-function looksLikeHeic(file: File) {
-  return /heic|heif/i.test(file.type) || /\.hei[cf]$/i.test(file.name)
+function optionalNumber(value: string) {
+  const trimmed = value.trim()
+  if (trimmed === '') return null
+  const parsed = Number(trimmed)
+  return Number.isFinite(parsed) ? parsed : null
 }
 
 function Field({
@@ -87,11 +67,42 @@ function Field({
   )
 }
 
+/** One of the two big "how do you want to find it?" tiles. */
+function MethodCard({
+  icon,
+  title,
+  description,
+  onClick,
+}: {
+  icon: React.ReactNode
+  title: string
+  description: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-2xl border border-line-strong bg-parchment px-6 py-7 text-left transition-colors hover:border-terracotta hover:bg-terracotta-soft focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
+    >
+      <span className="inline-flex h-11 w-11 items-center justify-center rounded-full bg-surface text-terracotta">
+        {icon}
+      </span>
+      <p className="mt-4 font-medium text-ink">{title}</p>
+      <p className="mt-1 text-sm text-ink-muted">{description}</p>
+    </button>
+  )
+}
+
 /**
  * Adds a skein to the stash by pointing at a yarn in the global catalog, so the
  * stash row carries a ravelry_yarn_id rather than free text that can't be
  * matched later. Yarns that genuinely aren't in the catalog go to us by email
  * instead of being invented locally.
+ *
+ * The user picks a route in first — photograph the ball band, or search — but
+ * the two converge on the same catalog picker, because the saved row has to
+ * name a catalog yarn either way.
  */
 export function AddYarnDialog({
   open,
@@ -103,6 +114,7 @@ export function AddYarnDialog({
   onAdded: () => void
 }) {
   const { user } = useAuth()
+  const [mode, setMode] = useState<Mode>('choose')
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -118,6 +130,19 @@ export function AddYarnDialog({
   // Photo scan
   const [scanning, setScanning] = useState(false)
   const [scanned, setScanned] = useState<string | null>(null)
+
+  // Reopening should feel like a fresh start, not a half-filled form.
+  useEffect(() => {
+    if (!open) return
+    setMode('choose')
+    setForm(EMPTY)
+    setError(null)
+    setQuery('')
+    setResults([])
+    setSearched(false)
+    setSelected(null)
+    setScanned(null)
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -136,6 +161,17 @@ export function AddYarnDialog({
   const set = (key: keyof typeof EMPTY) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm((prev) => ({ ...prev, [key]: e.target.value }))
 
+  /** Swap routes, dropping anything the abandoned one had found. */
+  const switchMode = (next: Mode) => {
+    setMode(next)
+    setError(null)
+    setScanned(null)
+    setQuery('')
+    setResults([])
+    setSearched(false)
+    setSelected(null)
+  }
+
   const runSearch = async (q: string): Promise<CatalogYarn[]> => {
     if (!q.trim()) {
       setResults([])
@@ -144,18 +180,10 @@ export function AddYarnDialog({
     }
     setSearching(true)
     try {
-      const response = await fetch(
-        `/api/yarns?query=${encodeURIComponent(q)}&page_size=8&sort=rating`
-      )
-      const data = await response.json()
-      const found: CatalogYarn[] = response.ok ? data.yarns ?? [] : []
+      const found = await searchCatalog(q)
       setResults(found)
       setSearched(true)
       return found
-    } catch {
-      setResults([])
-      setSearched(true)
-      return []
     } finally {
       setSearching(false)
     }
@@ -179,16 +207,8 @@ export function AddYarnDialog({
     setError(null)
     setScanned(null)
     try {
-      let jpeg: File
-      try {
-        jpeg = await toJpeg(photo)
-      } catch {
-        throw new Error(
-          looksLikeHeic(photo)
-            ? "This browser can't open HEIC photos. Open YarnStash in Safari on your iPhone, or set Settings → Camera → Formats → Most Compatible to shoot JPEG."
-            : "Couldn't read that image. Try a JPEG or PNG."
-        )
-      }
+      // Decodes the HEIC an iPhone hands over, and shrinks the 12MP original.
+      const jpeg = await toUploadableJpeg(photo)
 
       const body = new FormData()
       body.append('image', jpeg)
@@ -204,7 +224,11 @@ export function AddYarnDialog({
       if (colorway) setForm((prev) => ({ ...prev, colorway }))
 
       if (!brand && !name) {
-        setError("Couldn't make out the brand or yarn name. Try a closer photo, or search below.")
+        // Reveal the search box so they can type it rather than start over.
+        setSearched(true)
+        setError(
+          "Couldn't make out the brand or yarn name. Try a closer photo, or search for it below."
+        )
         return
       }
 
@@ -214,10 +238,7 @@ export function AddYarnDialog({
 
       // Auto-select only on an unambiguous hit — otherwise the user picks from
       // the candidates rather than silently getting the wrong yarn.
-      const exact = found.filter(
-        (y) => brandMatches(y.yarn_company_name, brand) && normalize(y.name) === normalize(name)
-      )
-      const match = exact.length === 1 ? exact[0] : null
+      const match = pickExactMatch(found, brand, name)
       if (match) {
         setSelected(match)
         setScanned(
@@ -229,6 +250,8 @@ export function AddYarnDialog({
         setScanned(`Read "${searchText}" from the label, but found no catalog match.`)
       }
     } catch (err) {
+      // ImageConversionError messages are written for the user; so are the
+      // `error` strings the analyze route returns.
       setError(err instanceof Error ? err.message : 'Failed to read the photo')
     } finally {
       setScanning(false)
@@ -250,7 +273,13 @@ export function AddYarnDialog({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...form,
+          colorway: optionalText(form.colorway),
+          // `skeins` is a required integer, so it always needs a real value.
+          skeins: Math.max(1, Math.round(Number(form.skeins) || 1)),
+          purchase_price: optionalNumber(form.purchase_price),
+          purchase_date: optionalText(form.purchase_date),
+          location: optionalText(form.location),
+          notes: optionalText(form.notes),
           ravelry_yarn_id: String(selected.ravelry_id),
           brand: yarn.brand,
           name: yarn.name,
@@ -264,11 +293,6 @@ export function AddYarnDialog({
       const data = await response.json()
       if (!response.ok) throw new Error(data.error || 'Failed to add yarn')
 
-      setForm(EMPTY)
-      setSelected(null)
-      setQuery('')
-      setResults([])
-      setSearched(false)
       onAdded()
       onClose()
     } catch (err) {
@@ -295,6 +319,10 @@ export function AddYarnDialog({
   }
 
   const noMatches = searched && !searching && results.length === 0 && query.trim().length > 0
+
+  // In photo mode the search box only appears once a scan has run, so a misread
+  // label can be corrected without starting over.
+  const showSearchField = mode === 'search' || (mode === 'photo' && searched)
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:p-8">
@@ -323,210 +351,289 @@ export function AddYarnDialog({
           </button>
         </div>
 
-        {/* Scan a ball band to find the yarn without typing */}
-        <div className="mb-6 rounded-2xl border border-dashed border-line-strong bg-parchment px-5 py-4">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="font-medium text-ink">Scan the ball band</p>
-              <p className="text-sm text-ink-soft">
-                Take a photo and we&apos;ll look the yarn up for you.
-              </p>
+        {/* Step 1 — how do you want to find it? */}
+        {mode === 'choose' ? (
+          <div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <MethodCard
+                icon={<CameraIcon className="h-5 w-5" />}
+                title="Take a pic"
+                description="Photograph the ball band and we'll look the yarn up."
+                onClick={() => switchMode('photo')}
+              />
+              <MethodCard
+                icon={<SearchIcon className="h-5 w-5" />}
+                title="Search manually"
+                description="Type the brand and yarn name to find it in the catalog."
+                onClick={() => switchMode('search')}
+              />
+              <MethodCard
+                icon={<FileIcon className="h-5 w-5" />}
+                title="Upload a receipt"
+                description="Add a whole order at once, straight off the confirmation."
+                onClick={() => switchMode('receipt')}
+              />
             </div>
-            <input
-              type="file"
-              id="yarn-label-photo"
-              accept="image/*,.heic,.heif"
-              capture="environment"
-              onChange={handlePhoto}
-              className="hidden"
-              disabled={scanning}
-            />
-            <label
-              htmlFor="yarn-label-photo"
-              aria-disabled={scanning}
-              className={`inline-flex shrink-0 items-center gap-2 rounded-full border border-line-strong bg-surface px-4 py-2.5 text-sm font-medium text-ink transition-colors ${
-                scanning ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-parchment-deep'
-              }`}
+
+            <p className="mt-6 text-sm text-ink-soft">
+              Whichever way, you&apos;ll pick the yarn from our catalog, so your stash stays linked
+              to real yardage and gauge. Anything we don&apos;t have yet, you can ask us to add.
+            </p>
+
+            <div className="mt-8 flex justify-end">
+              <Button variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => switchMode('choose')}
+              className="mb-6 inline-flex items-center gap-2 text-sm text-ink-muted transition-colors hover:text-ink"
             >
-              <CameraIcon className="h-4 w-4" />
-              {scanning ? 'Reading label…' : 'Take a photo'}
-            </label>
-          </div>
-        </div>
+              <ArrowLeftIcon className="h-4 w-4" />
+              Choose another way
+            </button>
 
-        {scanned && (
-          <div className="mb-6 rounded-2xl bg-sage-soft px-5 py-4">
-            <p className="text-sm font-medium text-sage-deep">{scanned}</p>
-          </div>
-        )}
+            {/* A receipt carries a whole order, so it owns its own review flow */}
+            {mode === 'receipt' && <ReceiptImport onClose={onClose} onAdded={onAdded} />}
 
-        {error && (
-          <div className="mb-6 rounded-2xl bg-clay-soft px-5 py-4">
-            <p className="text-sm font-medium text-clay">{error}</p>
-          </div>
-        )}
-
-        {/* Catalog lookup — a stash entry always points at a catalog yarn */}
-        <div className="mb-6">
-          <Field label="Which yarn?">
-            <input
-              className={fieldStyles}
-              value={query}
-              onChange={handleQueryChange}
-              placeholder="Search the catalog — e.g. Malabrigo Rios"
-              autoFocus
-              autoComplete="off"
-            />
-          </Field>
-
-          {searching && <p className="mt-3 text-sm text-ink-soft">Searching the catalog…</p>}
-
-          {selected ? (
-            <div className="mt-4 flex items-start justify-between gap-4 rounded-2xl bg-sage-soft px-5 py-4 text-left">
-              <div className="flex min-w-0 items-start gap-3">
-                <CheckIcon className="mt-0.5 h-5 w-5 shrink-0 text-sage-deep" />
-                <div className="min-w-0">
-                  <p className="truncate font-medium text-ink">
-                    {selected.yarn_company_name} {selected.name}
-                  </p>
-                  <p className="text-sm text-ink-muted">
-                    {[
-                      selected.yarn_weight_name,
-                      selected.fiber_content,
-                      selected.yardage ? `${selected.yardage} yds` : null,
-                      selected.grams ? `${selected.grams} g` : null,
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </p>
-                </div>
+            {/* Step 2a — read the ball band */}
+            {mode === 'photo' && (
+              <div className="mb-6 rounded-2xl border border-dashed border-line-strong bg-parchment px-6 py-8 text-center">
+                <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-surface text-terracotta">
+                  <CameraIcon className="h-6 w-6" />
+                </span>
+                <p className="mt-4 font-medium text-ink">Photograph the ball band</p>
+                <p className="mx-auto mt-1 max-w-sm text-sm text-ink-muted">
+                  The paper label wrapped around the skein. Keep the brand and yarn name in frame
+                  and in focus.
+                </p>
+                <input
+                  type="file"
+                  id="yarn-label-photo"
+                  accept="image/*,.heic,.heif"
+                  onChange={handlePhoto}
+                  className="hidden"
+                  disabled={scanning}
+                />
+                <label
+                  htmlFor="yarn-label-photo"
+                  aria-disabled={scanning}
+                  className={`mt-5 inline-flex items-center gap-2 rounded-full border border-line-strong bg-surface px-5 py-2.5 text-sm font-medium text-ink transition-colors ${
+                    scanning
+                      ? 'cursor-not-allowed opacity-60'
+                      : 'cursor-pointer hover:bg-parchment-deep'
+                  }`}
+                >
+                  <CameraIcon className="h-4 w-4" />
+                  {scanning ? 'Reading label…' : 'Take a photo'}
+                </label>
+                <p className="mt-4 text-xs text-ink-soft">
+                  JPEG, PNG, WebP or HEIC — iPhone photos are converted for you.
+                </p>
               </div>
-              <button
-                type="button"
-                onClick={() => setSelected(null)}
-                className="shrink-0 rounded-full px-3 py-1 text-sm text-ink-muted transition-colors hover:text-ink"
-              >
-                Change
-              </button>
-            </div>
-          ) : (
-            results.length > 0 && (
-              <ul className="mt-3 max-h-64 overflow-y-auto rounded-2xl border border-line">
-                {results.map((yarn) => (
-                  <li key={yarn.ravelry_id} className="border-b border-line last:border-b-0">
-                    <button
-                      type="button"
-                      onClick={() => setSelected(yarn)}
-                      className="w-full px-5 py-3 text-left transition-colors hover:bg-parchment"
-                    >
-                      <p className="font-medium text-ink">
-                        {yarn.yarn_company_name} {yarn.name}
+            )}
+
+            {scanned && (
+              <div className="mb-6 rounded-2xl bg-sage-soft px-5 py-4">
+                <p className="text-sm font-medium text-sage-deep">{scanned}</p>
+              </div>
+            )}
+
+            {error && (
+              <div className="mb-6 rounded-2xl bg-clay-soft px-5 py-4">
+                <p className="text-sm font-medium text-clay">{error}</p>
+              </div>
+            )}
+
+            {/* Step 2b — the catalog picker, shared by the photo and search routes */}
+            <div className={`mb-6 ${mode === 'receipt' ? 'hidden' : ''}`}>
+              {showSearchField && (
+                <Field label="Which yarn?">
+                  <input
+                    className={fieldStyles}
+                    value={query}
+                    onChange={handleQueryChange}
+                    placeholder="Search the catalog — e.g. Malabrigo Rios"
+                    autoFocus={mode === 'search'}
+                    autoComplete="off"
+                  />
+                </Field>
+              )}
+
+              {searching && <p className="mt-3 text-sm text-ink-soft">Searching the catalog…</p>}
+
+              {selected ? (
+                <div className="mt-4 flex items-start justify-between gap-4 rounded-2xl bg-sage-soft px-5 py-4 text-left">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <CheckIcon className="mt-0.5 h-5 w-5 shrink-0 text-sage-deep" />
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-ink">
+                        {selected.yarn_company_name} {selected.name}
                       </p>
-                      <p className="text-sm text-ink-soft">
+                      <p className="text-sm text-ink-muted">
                         {[
-                          yarn.yarn_weight_name,
-                          yarn.fiber_content,
-                          yarn.yardage ? `${yarn.yardage} yds` : null,
+                          selected.yarn_weight_name,
+                          selected.fiber_content,
+                          selected.yardage ? `${selected.yardage} yds` : null,
+                          selected.grams ? `${selected.grams} g` : null,
                         ]
                           .filter(Boolean)
                           .join(' · ')}
                       </p>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )
-          )}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSelected(null)}
+                    className="shrink-0 rounded-full px-3 py-1 text-sm text-ink-muted transition-colors hover:text-ink"
+                  >
+                    Change
+                  </button>
+                </div>
+              ) : (
+                results.length > 0 && (
+                  <>
+                    <ul className="mt-3 max-h-64 overflow-y-auto rounded-2xl border border-line">
+                      {results.map((yarn) => (
+                        <li key={yarn.ravelry_id} className="border-b border-line last:border-b-0">
+                          <button
+                            type="button"
+                            onClick={() => setSelected(yarn)}
+                            className="w-full px-5 py-3 text-left transition-colors hover:bg-parchment"
+                          >
+                            <p className="font-medium text-ink">
+                              {yarn.yarn_company_name} {yarn.name}
+                            </p>
+                            <p className="text-sm text-ink-soft">
+                              {[
+                                yarn.yarn_weight_name,
+                                yarn.fiber_content,
+                                yarn.yardage ? `${yarn.yardage} yds` : null,
+                              ]
+                                .filter(Boolean)
+                                .join(' · ')}
+                            </p>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                    <p className="mt-3 text-sm text-ink-soft">
+                      None of these it?{' '}
+                      <a
+                        href={submitNewYarnHref()}
+                        className="text-terracotta underline underline-offset-2"
+                      >
+                        Request a new yarn
+                      </a>
+                      .
+                    </p>
+                  </>
+                )
+              )}
 
-          {noMatches && !selected && (
-            <div className="mt-4 rounded-2xl border border-line bg-parchment px-5 py-4">
-              <p className="font-medium text-ink">Not in the catalog</p>
-              <p className="mt-1 text-sm text-ink-muted">
-                Nothing matches &ldquo;{query}&rdquo;. Send it to us and we&apos;ll add it.
-              </p>
-              <a
-                href={submitNewYarnHref()}
-                className="mt-4 inline-flex items-center gap-2 rounded-full bg-ink px-4 py-2.5 text-sm font-medium text-parchment transition-colors hover:bg-terracotta"
-              >
-                Submit a new yarn
-              </a>
+              {noMatches && !selected && (
+                <div className="mt-4 rounded-2xl border border-line bg-parchment px-5 py-4">
+                  <p className="font-medium text-ink">Not in the catalog</p>
+                  <p className="mt-1 text-sm text-ink-muted">
+                    Nothing matches &ldquo;{query}&rdquo;. Send it to us and we&apos;ll add it.
+                  </p>
+                  <a
+                    href={submitNewYarnHref()}
+                    className="mt-4 inline-flex items-center gap-2 rounded-full bg-ink px-4 py-2.5 text-sm font-medium text-parchment transition-colors hover:bg-terracotta"
+                  >
+                    Request a new yarn
+                  </a>
+                </div>
+              )}
             </div>
-          )}
-        </div>
 
-        {/* This skein's own details */}
-        <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-          <Field label="Colorway">
-            <input
-              className={fieldStyles}
-              value={form.colorway}
-              onChange={set('colorway')}
-              placeholder="Sapphire"
-            />
-          </Field>
+            {/* Step 3 — this skein's own details, once a catalog yarn is picked */}
+            {mode === 'receipt' ? null : selected ? (
+              <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                <Field label="Colorway">
+                  <input
+                    className={fieldStyles}
+                    value={form.colorway}
+                    onChange={set('colorway')}
+                    placeholder="Sapphire"
+                  />
+                </Field>
 
-          <Field label="Skeins">
-            <input
-              type="number"
-              min="1"
-              className={fieldStyles}
-              value={form.skeins}
-              onChange={set('skeins')}
-            />
-          </Field>
+                <Field label="Skeins">
+                  <input
+                    type="number"
+                    min="1"
+                    className={fieldStyles}
+                    value={form.skeins}
+                    onChange={set('skeins')}
+                  />
+                </Field>
 
-          <Field label="Price paid">
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              className={fieldStyles}
-              value={form.purchase_price}
-              onChange={set('purchase_price')}
-              placeholder="24.00"
-            />
-          </Field>
+                <Field label="Price paid">
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    className={fieldStyles}
+                    value={form.purchase_price}
+                    onChange={set('purchase_price')}
+                    placeholder="24.00"
+                  />
+                </Field>
 
-          <Field label="Purchase date">
-            <input
-              type="date"
-              className={fieldStyles}
-              value={form.purchase_date}
-              onChange={set('purchase_date')}
-            />
-          </Field>
+                <Field label="Purchase date">
+                  <input
+                    type="date"
+                    className={fieldStyles}
+                    value={form.purchase_date}
+                    onChange={set('purchase_date')}
+                  />
+                </Field>
 
-          <Field label="Where it lives" className="sm:col-span-2">
-            <input
-              className={fieldStyles}
-              value={form.location}
-              onChange={set('location')}
-              placeholder="Bin 3, closet"
-            />
-          </Field>
+                <Field label="Where it lives" className="sm:col-span-2">
+                  <input
+                    className={fieldStyles}
+                    value={form.location}
+                    onChange={set('location')}
+                    placeholder="Bin 3, closet"
+                  />
+                </Field>
 
-          <Field label="Notes" className="sm:col-span-2">
-            <textarea
-              rows={3}
-              className={fieldStyles}
-              value={form.notes}
-              onChange={set('notes')}
-              placeholder="Saved for a winter hat"
-            />
-          </Field>
+                <Field label="Notes" className="sm:col-span-2">
+                  <textarea
+                    rows={3}
+                    className={fieldStyles}
+                    value={form.notes}
+                    onChange={set('notes')}
+                    placeholder="Saved for a winter hat"
+                  />
+                </Field>
 
-          <div className="mt-2 flex flex-wrap items-center justify-end gap-3 sm:col-span-2">
-            {!selected && (
-              <p className="mr-auto text-sm text-ink-soft">Pick a yarn from the catalog to save.</p>
+                <div className="mt-2 flex flex-wrap items-center justify-end gap-3 sm:col-span-2">
+                  <Button variant="outline" onClick={onClose}>
+                    Cancel
+                  </Button>
+                  <Button variant="primary" type="submit" disabled={saving}>
+                    {saving ? 'Adding…' : 'Add to stash'}
+                  </Button>
+                </div>
+              </form>
+            ) : (
+              <div className="flex flex-wrap items-center justify-end gap-3">
+                <p className="mr-auto text-sm text-ink-soft">
+                  Pick a yarn from the catalog to fill in the rest.
+                </p>
+                <Button variant="outline" onClick={onClose}>
+                  Cancel
+                </Button>
+              </div>
             )}
-            <Button variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button variant="primary" type="submit" disabled={saving || !selected}>
-              {saving ? 'Adding…' : 'Add to stash'}
-            </Button>
-          </div>
-        </form>
+          </>
+        )}
       </div>
     </div>
   )
