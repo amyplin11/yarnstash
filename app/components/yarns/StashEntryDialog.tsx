@@ -94,15 +94,22 @@ export function StashEntryDialog({ entry, onClose, onChanged }: StashEntryDialog
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto p-4 sm:p-8">
+    <div className="fixed inset-0 z-50 overflow-y-auto">
       <div className="fixed inset-0 bg-ink/30" onClick={onClose} aria-hidden="true" />
 
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="stash-entry-title"
-        className="relative w-full max-w-md rounded-[2rem] border border-line bg-surface p-8 shadow-[0_30px_80px_-40px_rgba(28,26,23,0.7)]"
-      >
+      {/*
+        min-h-full plus items-center centres the panel in the viewport while
+        still letting the container scroll if the dialog ever outgrows it.
+        items-center directly on the scroll container would centre it too, but
+        clips the top out of reach once the content is taller than the screen.
+      */}
+      <div className="relative flex min-h-full items-center justify-center p-4 sm:p-8">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="stash-entry-title"
+          className="relative w-full max-w-md rounded-[2rem] border border-line bg-surface p-8 shadow-[0_30px_80px_-40px_rgba(28,26,23,0.7)]"
+        >
         <div className="mb-8 flex items-start justify-between gap-4">
           <div className="min-w-0">
             <p className="eyebrow mb-2 text-terracotta">In your stash</p>
@@ -178,7 +185,7 @@ export function StashEntryDialog({ entry, onClose, onChanged }: StashEntryDialog
             )}
           </div>
           <p className="mt-2 text-xs text-ink-soft">
-            A stash row holds at least one skein — use Remove to drop the yarn entirely.
+            A stash row holds at least one skein — use Delete all to drop the yarn entirely.
           </p>
         </div>
 
@@ -191,9 +198,9 @@ export function StashEntryDialog({ entry, onClose, onChanged }: StashEntryDialog
         <div className="flex flex-wrap items-center justify-between gap-3">
           {confirmingDelete ? (
             <div className="flex items-center gap-2">
-              <span className="text-sm text-ink-muted">Remove it?</span>
+              <span className="text-sm text-ink-muted">Delete all of it?</span>
               <Button variant="primary" size="sm" onClick={remove} disabled={busy !== null}>
-                {busy === 'deleting' ? 'Removing…' : 'Yes, remove'}
+                {busy === 'deleting' ? 'Deleting…' : 'Yes, delete all'}
               </Button>
               <Button
                 variant="secondary"
@@ -211,7 +218,7 @@ export function StashEntryDialog({ entry, onClose, onChanged }: StashEntryDialog
               onClick={() => setConfirmingDelete(true)}
               disabled={busy !== null}
             >
-              Remove from stash
+              Delete all
             </Button>
           )}
 
@@ -222,6 +229,7 @@ export function StashEntryDialog({ entry, onClose, onChanged }: StashEntryDialog
             <Button variant="primary" onClick={save} disabled={busy !== null || !changed}>
               {busy === 'saving' ? 'Saving…' : 'Save'}
             </Button>
+          </div>
           </div>
         </div>
       </div>
