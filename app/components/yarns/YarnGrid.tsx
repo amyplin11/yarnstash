@@ -8,6 +8,8 @@ interface YarnGridProps {
   onAdd?: (yarnId: string) => void
   editable?: boolean
   onDelete?: (yarnId: string) => void
+  /** Opens a card for editing. Cards are only clickable when this is supplied. */
+  onSelect?: (yarnId: string) => void
   emptyMessage?: string
 }
 
@@ -17,6 +19,7 @@ export function YarnGrid({
   onAdd,
   editable = false,
   onDelete,
+  onSelect,
   emptyMessage = 'No yarns found.',
 }: YarnGridProps) {
   if (yarns.length === 0) {
@@ -33,6 +36,7 @@ export function YarnGrid({
           onAdd={onAdd ? () => onAdd(yarn.id) : undefined}
           editable={editable}
           onDelete={onDelete ? () => onDelete(yarn.id) : undefined}
+          onSelect={onSelect ? () => onSelect(yarn.id) : undefined}
         />
       ))}
     </div>

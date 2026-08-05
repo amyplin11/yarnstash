@@ -155,6 +155,14 @@ export function PlusIcon(props: IconProps) {
   )
 }
 
+export function MinusIcon(props: IconProps) {
+  return (
+    <Line {...props}>
+      <path d="M5 12h14" />
+    </Line>
+  )
+}
+
 export function ArrowRightIcon(props: IconProps) {
   return (
     <Line {...props}>

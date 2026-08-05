@@ -7,6 +7,7 @@ import { StashYarn } from '@/lib/types'
 import { YarnGrid } from '@/app/components/yarns/YarnGrid'
 import { YarnTable } from '@/app/components/yarns/YarnTable'
 import { AddYarnDialog } from '@/app/components/yarns/AddYarnDialog'
+import { StashEntryDialog } from '@/app/components/yarns/StashEntryDialog'
 import { setStashView, useStashView } from '@/app/components/yarns/stashViewState'
 import { Card } from '@/app/components/ui/Card'
 import { YarnWeight } from '@/lib/types'
@@ -27,7 +28,9 @@ export default function StashPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [weightFilter, setWeightFilter] = useState<YarnWeight | 'all'>('all')
+  const [brandFilter, setBrandFilter] = useState<string>('all')
   const [addOpen, setAddOpen] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const view = useStashView()
 
   // Redirect to login if not authenticated
@@ -108,9 +111,40 @@ export default function StashPage() {
     }
   }
 
-  const filteredStash = weightFilter === 'all'
-    ? stashYarns
-    : stashYarns.filter(stashYarn => stashYarn.yarn.weight === weightFilter)
+  // Brands come from the stash itself, not the catalog — the dropdown should
+  // only ever offer something the user actually owns. Derived from the full
+  // stash rather than the weight-filtered subset so the list stays put while
+  // the weight buttons are used, instead of options vanishing mid-choice.
+  const brands = Array.from(
+    new Set(
+      stashYarns
+        .map((stashYarn) => stashYarn.yarn.brand?.trim())
+        .filter((brand): brand is string => Boolean(brand))
+    )
+  ).sort((a, b) => a.localeCompare(b))
+
+  const filteredStash = stashYarns.filter((stashYarn) => {
+    if (weightFilter !== 'all' && stashYarn.yarn.weight !== weightFilter) return false
+    if (brandFilter !== 'all' && stashYarn.yarn.brand?.trim() !== brandFilter) return false
+    return true
+  })
+
+  // A brand that no longer exists in the stash (its last skein was removed)
+  // would otherwise filter everything out with no way back.
+  useEffect(() => {
+    if (brandFilter !== 'all' && !brands.includes(brandFilter)) {
+      setBrandFilter('all')
+    }
+  }, [brands, brandFilter])
+
+  const editingEntry = stashYarns.find((stashYarn) => stashYarn.id === editingId) ?? null
+
+  // "Your stash is empty" is a lie when a filter is what emptied the view.
+  const filtering = weightFilter !== 'all' || brandFilter !== 'all'
+  const emptyMessage =
+    stashYarns.length > 0 && filtering
+      ? 'No yarns match these filters.'
+      : 'Your stash is empty.'
 
   const weights: (YarnWeight | 'all')[] = [
     'all', 'lace', 'fingering', 'sport', 'dk', 'worsted', 'aran', 'bulky', 'super-bulky', 'jumbo'
@@ -153,7 +187,7 @@ export default function StashPage() {
         )}
 
         {/* Weight filter, with the card/table switch trailing it */}
-        <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap gap-2">
             {weights.map((weight) => (
               <Button
@@ -174,6 +208,40 @@ export default function StashPage() {
           />
         </div>
 
+        {/*
+          Brand filter. Hidden until there is a real choice to make — with one
+          brand in the stash the control can only ever be a no-op.
+        */}
+        {brands.length > 1 && (
+          <div className="mb-8 flex flex-wrap items-center gap-3">
+            <label
+              htmlFor="brand-filter"
+              className="text-xs font-semibold uppercase tracking-wider text-ink-soft"
+            >
+              Brand
+            </label>
+            <select
+              id="brand-filter"
+              value={brandFilter}
+              onChange={(e) => setBrandFilter(e.target.value)}
+              className="rounded-full border border-line bg-surface px-4 py-2 text-sm text-ink transition-colors hover:border-line-strong focus:border-terracotta focus:outline-none"
+            >
+              <option value="all">All brands ({stashYarns.length})</option>
+              {brands.map((brand) => (
+                <option key={brand} value={brand}>
+                  {brand} (
+                  {stashYarns.filter((s) => s.yarn.brand?.trim() === brand).length})
+                </option>
+              ))}
+            </select>
+            {brandFilter !== 'all' && (
+              <Button variant="secondary" size="sm" onClick={() => setBrandFilter('all')}>
+                Clear
+              </Button>
+            )}
+          </div>
+        )}
+
         {/* Loading State */}
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16">
@@ -185,14 +253,16 @@ export default function StashPage() {
             yarns={filteredStash}
             editable={true}
             onDelete={handleDelete}
-            emptyMessage="Your stash is empty."
+            onSelect={setEditingId}
+            emptyMessage={emptyMessage}
           />
         ) : (
           <YarnGrid
             yarns={filteredStash}
             editable={true}
             onDelete={handleDelete}
-            emptyMessage="Your stash is empty."
+            onSelect={setEditingId}
+            emptyMessage={emptyMessage}
           />
         )}
 
@@ -200,6 +270,12 @@ export default function StashPage() {
           open={addOpen}
           onClose={() => setAddOpen(false)}
           onAdded={fetchStash}
+        />
+
+        <StashEntryDialog
+          entry={editingEntry}
+          onClose={() => setEditingId(null)}
+          onChanged={fetchStash}
         />
       </main>
     </div>

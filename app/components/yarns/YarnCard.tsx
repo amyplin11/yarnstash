@@ -9,9 +9,11 @@ interface YarnCardProps {
   onAdd?: () => void
   editable?: boolean
   onDelete?: () => void
+  /** Opens this card for editing. The card is only clickable when supplied. */
+  onSelect?: () => void
 }
 
-export function YarnCard({ yarn, showAddButton = false, onAdd, editable = false, onDelete }: YarnCardProps) {
+export function YarnCard({ yarn, showAddButton = false, onAdd, editable = false, onDelete, onSelect }: YarnCardProps) {
   // Determine if this is a StashYarn or regular Yarn
   const isStashYarn = 'skeins' in yarn
   const yarnData = isStashYarn ? yarn.yarn : yarn
@@ -23,7 +25,8 @@ export function YarnCard({ yarn, showAddButton = false, onAdd, editable = false,
     : '#d8d0bd'
 
   return (
-    <Card className="p-4 space-y-3">
+    // Card supplies the pointer cursor and hover treatment when it is clickable.
+    <Card className="p-4 space-y-3" onClick={onSelect}>
       {/* Color Swatch */}
       {yarnData.imageUrl ? (
         <div className="w-full h-32 bg-gray-100 dark:bg-gray-800 rounded-md overflow-hidden">
@@ -112,8 +115,12 @@ export function YarnCard({ yarn, showAddButton = false, onAdd, editable = false,
           </div>
         )}
 
-        {/* Action Buttons */}
-        <div className="pt-2 space-y-2">
+        {/*
+          Action Buttons. stopPropagation throughout: the whole card is
+          clickable when onSelect is set, and without it every one of these
+          would also open the edit dialog behind itself.
+        */}
+        <div className="pt-2 space-y-2" onClick={(e) => e.stopPropagation()}>
           {showAddButton && onAdd && (
             <Button
               variant="outline"
@@ -126,7 +133,19 @@ export function YarnCard({ yarn, showAddButton = false, onAdd, editable = false,
           )}
           {editable && (
             <div className="flex gap-2">
-              <Button variant="secondary" size="sm" className="flex-1">
+              {/*
+                Edit carried no handler at all before, so it rendered as a dead
+                control. It now opens the same dialog the card click does, and
+                is the keyboard-reachable way in — a clickable <div> Card is
+                not focusable.
+              */}
+              <Button
+                variant="secondary"
+                size="sm"
+                className="flex-1"
+                onClick={onSelect}
+                disabled={!onSelect}
+              >
                 Edit
               </Button>
               {onDelete && (

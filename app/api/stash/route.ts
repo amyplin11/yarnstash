@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { MIN_SKEINS, NUMBER_FIELDS, TEXT_FIELDS } from '@/lib/stash/fields'
 
 // GET all stash yarns
 export async function GET() {
@@ -34,20 +35,9 @@ export async function GET() {
   }
 }
 
-/** Columns a client is allowed to set; anything else in the body is ignored. */
-const TEXT_FIELDS = [
-  'ravelry_yarn_id',
-  'brand',
-  'name',
-  'colorway',
-  'weight',
-  'fiber_content',
-  'location',
-  'notes',
-  'image_url',
-  'purchase_date',
-] as const
-const NUMBER_FIELDS = ['yardage', 'grams_per_skein', 'skeins', 'purchase_price'] as const
+// Shared with the update route in ./[id] so both write paths accept the same
+// columns.
+
 
 // POST - Add yarn to stash
 export async function POST(request: NextRequest) {
@@ -82,7 +72,7 @@ export async function POST(request: NextRequest) {
         record[field] = value
       }
     }
-    record.skeins = Math.max(1, Number(record.skeins) || 1)
+    record.skeins = Math.max(MIN_SKEINS, Number(record.skeins) || MIN_SKEINS)
 
     const { data, error } = await supabase
       .from('stash_yarns')

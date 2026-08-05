@@ -9,6 +9,8 @@ interface YarnTableProps {
   onAdd?: (yarnId: string) => void
   editable?: boolean
   onDelete?: (yarnId: string) => void
+  /** Opens a row for editing. Rows are only clickable when this is supplied. */
+  onSelect?: (yarnId: string) => void
   emptyMessage?: string
 }
 
@@ -31,6 +33,7 @@ export function YarnTable({
   onAdd,
   editable = false,
   onDelete,
+  onSelect,
   emptyMessage = 'No yarns found.',
 }: YarnTableProps) {
   if (yarns.length === 0) {
@@ -111,7 +114,10 @@ export function YarnTable({
             return (
               <tr
                 key={yarn.id}
-                className="border-b border-line last:border-b-0 transition-colors hover:bg-parchment"
+                onClick={onSelect ? () => onSelect(yarn.id) : undefined}
+                className={`border-b border-line last:border-b-0 transition-colors hover:bg-parchment${
+                  onSelect ? ' cursor-pointer' : ''
+                }`}
               >
                 <td className={`${cellStyles} min-w-[200px]`}>
                   <div className="flex items-center gap-3">
@@ -131,7 +137,26 @@ export function YarnTable({
                       <p className="text-xs uppercase tracking-wide text-ink-soft">
                         {yarnData.brand}
                       </p>
-                      <p className="truncate font-medium text-ink">{yarnData.name}</p>
+                      {/*
+                        A clickable <tr> is mouse-only — it takes no focus and
+                        announces nothing. The name doubles as the real control
+                        so the row is reachable by keyboard and screen reader;
+                        the row's own onClick is then just a bigger hit area.
+                      */}
+                      {onSelect ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            onSelect(yarn.id)
+                          }}
+                          className="block max-w-full truncate text-left font-medium text-ink underline-offset-4 hover:underline focus:outline-none focus-visible:underline"
+                        >
+                          {yarnData.name}
+                        </button>
+                      ) : (
+                        <p className="truncate font-medium text-ink">{yarnData.name}</p>
+                      )}
                     </div>
                   </div>
                 </td>
@@ -169,7 +194,11 @@ export function YarnTable({
                 )}
 
                 {showActions && (
-                  <td className={`${cellStyles} text-right`}>
+                  // stopPropagation so these buttons don't also open the row.
+                  <td
+                    className={`${cellStyles} text-right`}
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     {showAddButton && onAdd && (
                       <Button variant="outline" size="sm" onClick={() => onAdd(yarn.id)}>
                         Add to Stash
