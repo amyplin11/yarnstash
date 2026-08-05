@@ -332,13 +332,25 @@ export function AddYarnDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="add-yarn-title"
-        className="relative w-full max-w-2xl rounded-[2rem] border border-line bg-surface p-8 shadow-[0_30px_80px_-40px_rgba(28,26,23,0.7)] sm:p-10"
+        className="relative w-full max-w-2xl rounded-[2rem] border border-line bg-surface p-6 shadow-[0_30px_80px_-40px_rgba(28,26,23,0.7)] sm:p-8"
       >
-        <div className="mb-8 flex items-start justify-between gap-4">
+        <div className="mb-5 flex items-center justify-between gap-4">
           <div>
-            <p className="eyebrow mb-2 text-terracotta">Add to stash</p>
-            <h2 id="add-yarn-title" className="font-display text-3xl tracking-tight text-ink">
-              A new yarn
+            {/*
+              "A new yarn" is gone, so this carries the dialog's accessible
+              name — aria-labelledby on the panel points at this id and would
+              otherwise dangle, leaving the dialog unnamed to a screen reader.
+            */}
+            {/*
+              Spelled out rather than reusing the `eyebrow` utility: that one
+              pins font-size to 0.75rem, and whether a `text-*` class beats it
+              comes down to utility order. Same look, at the size we asked for.
+            */}
+            <h2
+              id="add-yarn-title"
+              className="text-base font-semibold uppercase tracking-[0.18em] text-terracotta sm:text-lg"
+            >
+              Add to stash
             </h2>
           </div>
           <button
@@ -391,7 +403,7 @@ export function AddYarnDialog({
             <button
               type="button"
               onClick={() => switchMode('choose')}
-              className="mb-6 inline-flex items-center gap-2 text-sm text-ink-muted transition-colors hover:text-ink"
+              className="mb-4 inline-flex items-center gap-2 text-sm text-ink-muted transition-colors hover:text-ink"
             >
               <ArrowLeftIcon className="h-4 w-4" />
               Choose another way

@@ -59,6 +59,26 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/*
+ * Yes — anything clickable should show the pointer, and it should not be each
+ * component's job to remember. Tailwind v3's preflight gave buttons
+ * `cursor: pointer`; v4 dropped that and leaves them on the browser default
+ * (`default`), which is why buttons across the app felt inert on hover. Put it
+ * back once, here.
+ *
+ * In `@layer base` so ordinary utilities still beat it — `:not(:disabled)`
+ * already keeps `disabled:cursor-not-allowed` intact, and the layer means a
+ * deliberate `cursor-*` utility anywhere wins too.
+ */
+@layer base {
+  button:not(:disabled),
+  select:not(:disabled),
+  summary,
+  [role='button']:not([aria-disabled='true']) {
+    cursor: pointer;
+  }
+}
+
 /* Eyebrow labels: tracked-out small caps, usually preceded by a short rule. */
 @utility eyebrow {
   font-size: 0.75rem;
