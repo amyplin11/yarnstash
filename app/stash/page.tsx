@@ -21,6 +21,23 @@ const VIEW_OPTIONS = [
   { value: 'table' as const, label: 'Table', icon: TableIcon },
 ]
 
+/** Lightest to heaviest — the order a knitter expects, not alphabetical. */
+const WEIGHT_ORDER: YarnWeight[] = [
+  'lace',
+  'fingering',
+  'sport',
+  'dk',
+  'worsted',
+  'aran',
+  'bulky',
+  'super-bulky',
+  'jumbo',
+]
+
+const filterLabelStyles = 'text-xs font-semibold uppercase tracking-wider text-ink-soft'
+const filterSelectStyles =
+  'rounded-full border border-line bg-surface px-4 py-2 text-sm capitalize text-ink transition-colors hover:border-line-strong focus:border-terracotta focus:outline-none disabled:cursor-not-allowed disabled:opacity-50'
+
 export default function StashPage() {
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
@@ -111,10 +128,11 @@ export default function StashPage() {
     }
   }
 
-  // Brands come from the stash itself, not the catalog — the dropdown should
-  // only ever offer something the user actually owns. Derived from the full
-  // stash rather than the weight-filtered subset so the list stays put while
-  // the weight buttons are used, instead of options vanishing mid-choice.
+  // Both dropdowns are built from the stash itself, not the catalog — they
+  // should only ever offer something the user actually owns, so no choice can
+  // lead to an empty result. Both derive from the full stash rather than from
+  // each other's filtered subset, so using one doesn't make the other's
+  // options vanish mid-selection.
   const brands = Array.from(
     new Set(
       stashYarns
@@ -123,19 +141,36 @@ export default function StashPage() {
     )
   ).sort((a, b) => a.localeCompare(b))
 
+  // Weights keep their natural lace-to-jumbo order rather than sorting
+  // alphabetically, which would read as nonsense to a knitter.
+  const weights = WEIGHT_ORDER.filter((weight) =>
+    stashYarns.some((stashYarn) => stashYarn.yarn.weight === weight)
+  )
+
+  const countByBrand = (brand: string) =>
+    stashYarns.filter((s) => s.yarn.brand?.trim() === brand).length
+  const countByWeight = (weight: YarnWeight) =>
+    stashYarns.filter((s) => s.yarn.weight === weight).length
+
   const filteredStash = stashYarns.filter((stashYarn) => {
     if (weightFilter !== 'all' && stashYarn.yarn.weight !== weightFilter) return false
     if (brandFilter !== 'all' && stashYarn.yarn.brand?.trim() !== brandFilter) return false
     return true
   })
 
-  // A brand that no longer exists in the stash (its last skein was removed)
-  // would otherwise filter everything out with no way back.
+  // A brand or weight that no longer exists in the stash (its last skein was
+  // deleted) would otherwise filter everything out with no way back.
   useEffect(() => {
     if (brandFilter !== 'all' && !brands.includes(brandFilter)) {
       setBrandFilter('all')
     }
   }, [brands, brandFilter])
+
+  useEffect(() => {
+    if (weightFilter !== 'all' && !weights.includes(weightFilter)) {
+      setWeightFilter('all')
+    }
+  }, [weights, weightFilter])
 
   const editingEntry = stashYarns.find((stashYarn) => stashYarn.id === editingId) ?? null
 
@@ -145,10 +180,6 @@ export default function StashPage() {
     stashYarns.length > 0 && filtering
       ? 'No yarns match these filters.'
       : 'Your stash is empty.'
-
-  const weights: (YarnWeight | 'all')[] = [
-    'all', 'lace', 'fingering', 'sport', 'dk', 'worsted', 'aran', 'bulky', 'super-bulky', 'jumbo'
-  ]
 
   return (
     <div className="min-h-screen bg-background">
@@ -186,20 +217,68 @@ export default function StashPage() {
           </Card>
         )}
 
-        {/* Weight filter, with the card/table switch trailing it */}
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex flex-wrap gap-2">
-            {weights.map((weight) => (
-              <Button
-                key={weight}
-                variant={weightFilter === weight ? 'primary' : 'secondary'}
-                size="sm"
-                onClick={() => setWeightFilter(weight)}
+        {/*
+          Filters, with the card/table switch trailing them. Both dropdowns
+          render whenever the stash has anything in it — an earlier version
+          hid the brand filter unless there were two or more brands, which
+          just made it look missing.
+        */}
+        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="weight-filter" className={filterLabelStyles}>
+                Weight
+              </label>
+              <select
+                id="weight-filter"
+                value={weightFilter}
+                onChange={(e) => setWeightFilter(e.target.value as YarnWeight | 'all')}
+                disabled={stashYarns.length === 0}
+                className={filterSelectStyles}
               >
-                {weight === 'all' ? 'All Weights' : weight}
+                <option value="all">All weights ({stashYarns.length})</option>
+                {weights.map((weight) => (
+                  <option key={weight} value={weight}>
+                    {weight} ({countByWeight(weight)})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              <label htmlFor="brand-filter" className={filterLabelStyles}>
+                Brand
+              </label>
+              <select
+                id="brand-filter"
+                value={brandFilter}
+                onChange={(e) => setBrandFilter(e.target.value)}
+                disabled={stashYarns.length === 0}
+                className={filterSelectStyles}
+              >
+                <option value="all">All brands ({stashYarns.length})</option>
+                {brands.map((brand) => (
+                  <option key={brand} value={brand}>
+                    {brand} ({countByBrand(brand)})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {filtering && (
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setWeightFilter('all')
+                  setBrandFilter('all')
+                }}
+              >
+                Clear filters
               </Button>
-            ))}
+            )}
           </div>
+
           <ViewToggle
             value={view}
             onChange={setStashView}
@@ -207,40 +286,6 @@ export default function StashPage() {
             label="Stash view"
           />
         </div>
-
-        {/*
-          Brand filter. Hidden until there is a real choice to make — with one
-          brand in the stash the control can only ever be a no-op.
-        */}
-        {brands.length > 1 && (
-          <div className="mb-8 flex flex-wrap items-center gap-3">
-            <label
-              htmlFor="brand-filter"
-              className="text-xs font-semibold uppercase tracking-wider text-ink-soft"
-            >
-              Brand
-            </label>
-            <select
-              id="brand-filter"
-              value={brandFilter}
-              onChange={(e) => setBrandFilter(e.target.value)}
-              className="rounded-full border border-line bg-surface px-4 py-2 text-sm text-ink transition-colors hover:border-line-strong focus:border-terracotta focus:outline-none"
-            >
-              <option value="all">All brands ({stashYarns.length})</option>
-              {brands.map((brand) => (
-                <option key={brand} value={brand}>
-                  {brand} (
-                  {stashYarns.filter((s) => s.yarn.brand?.trim() === brand).length})
-                </option>
-              ))}
-            </select>
-            {brandFilter !== 'all' && (
-              <Button variant="secondary" size="sm" onClick={() => setBrandFilter('all')}>
-                Clear
-              </Button>
-            )}
-          </div>
-        )}
 
         {/* Loading State */}
         {loading ? (
