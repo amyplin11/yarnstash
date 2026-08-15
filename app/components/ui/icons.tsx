@@ -189,6 +189,15 @@ export function SearchIcon(props: IconProps) {
   )
 }
 
+export function MessageIcon(props: IconProps) {
+  return (
+    <Line {...props}>
+      <path d="M20 12.5c0 3.6-3.6 6.5-8 6.5a9.6 9.6 0 0 1-2.7-.4L5 20l1.2-3A6.1 6.1 0 0 1 4 12.5C4 8.9 7.6 6 12 6s8 2.9 8 6.5Z" />
+      <path d="M9 12.5h.01M12 12.5h.01M15 12.5h.01" />
+    </Line>
+  )
+}
+
 export function LogOutIcon(props: IconProps) {
   return (
     <Line {...props}>

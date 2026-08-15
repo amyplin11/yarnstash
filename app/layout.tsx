@@ -5,7 +5,6 @@ import { AppShell } from "./components/navigation/AppShell";
 import { AuthProvider } from "@/lib/auth/AuthContext";
 import { UploadProvider } from "@/lib/upload/UploadContext";
 import { UploadStatusBar } from "./components/ui/UploadStatusBar";
-import { FeedbackButton } from "./components/feedback/FeedbackButton";
 
 const figtree = Figtree({
   variable: "--font-figtree",
@@ -37,7 +36,6 @@ export default function RootLayout({
           <UploadProvider>
             <AppShell>{children}</AppShell>
             <UploadStatusBar />
-            <FeedbackButton />
           </UploadProvider>
         </AuthProvider>
       </body>

@@ -21,6 +21,7 @@ import {
 import { toggleSidebar, useSidebarCollapsed } from './sidebarState'
 import { useHydrated } from '@/app/components/ui/useHydrated'
 import { usePatternCount } from './usePatternCount'
+import { FeedbackNavItem } from '@/app/components/feedback/FeedbackButton'
 
 // The user's own things first, then the browse-everything destinations.
 const navItems = [
@@ -194,7 +195,10 @@ export function Sidebar() {
           </div>
           <NavList collapsed={collapsed} />
         </div>
-        <AccountPanel collapsed={collapsed} />
+        <div>
+          <FeedbackNavItem collapsed={collapsed} />
+          <AccountPanel collapsed={collapsed} />
+        </div>
       </aside>
 
       {/* Mobile bar */}
@@ -231,7 +235,10 @@ export function Sidebar() {
               </div>
               <NavList onNavigate={() => setDrawerOpen(false)} />
             </div>
-            <AccountPanel onNavigate={() => setDrawerOpen(false)} />
+            <div>
+              <FeedbackNavItem onNavigate={() => setDrawerOpen(false)} />
+              <AccountPanel onNavigate={() => setDrawerOpen(false)} />
+            </div>
           </div>
         </div>
       )}
