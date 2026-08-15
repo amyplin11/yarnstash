@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/auth/AuthContext'
 import { Card } from '@/app/components/ui/Card'
 import { Badge } from '@/app/components/ui/Badge'
 import { Button } from '@/app/components/ui/Button'
+import { StitchCounters } from '@/app/components/patterns/StitchCounters'
 import type { NotesContent, ChartContent, StitchPatternContent, SchematicContent } from '@/lib/types/pattern'
 
 interface Instruction {
@@ -518,6 +519,9 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
             )}
           </Card>
 
+          {/* Counters — kept within thumb's reach of the step buttons */}
+          <StitchCounters patternId={id} variant="compact" className="mb-6" />
+
           {/* Navigation */}
           <div className="flex items-center justify-between">
             <Button
@@ -633,6 +637,9 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
             )}
           </Card>
         )}
+
+        {/* Stitch counters */}
+        <StitchCounters patternId={id} />
 
         {/* Info cards row */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
