@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { useAuth } from '@/lib/auth/AuthContext'
-import { mockProjects } from '@/lib/data/mockProjects'
 import {
   ChevronsLeftIcon,
   ChevronsRightIcon,
@@ -21,6 +20,7 @@ import {
 } from '@/app/components/ui/icons'
 import { toggleSidebar, useSidebarCollapsed } from './sidebarState'
 import { useHydrated } from '@/app/components/ui/useHydrated'
+import { usePatternCount } from './usePatternCount'
 
 // The user's own things first, then the browse-everything destinations.
 const navItems = [
@@ -37,7 +37,7 @@ function isActivePath(pathname: string, path: string, exact?: boolean) {
 
 function NavList({ collapsed = false, onNavigate }: { collapsed?: boolean; onNavigate?: () => void }) {
   const pathname = usePathname()
-  const queuedCount = mockProjects.filter((p) => p.status === 'queued').length
+  const patternCount = usePatternCount()
 
   return (
     <nav className="flex flex-col gap-1">
@@ -46,7 +46,7 @@ function NavList({ collapsed = false, onNavigate }: { collapsed?: boolean; onNav
         const active = isActivePath(pathname, item.path, item.exact)
         const Icon = item.icon
         // Keyed off the route, not the label, so renaming an item can't drop the count.
-        const badge = item.path === '/queue' && queuedCount > 0 ? queuedCount : null
+        const badge = item.path === '/patterns' && patternCount > 0 ? patternCount : null
 
         return (
           <Link
