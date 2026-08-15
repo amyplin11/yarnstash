@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { APP_HOME } from '@/lib/auth/routes'
 import { supabase } from '@/lib/supabase/client'
 import { Card } from '@/app/components/ui/Card'
 import { Button } from '@/app/components/ui/Button'
@@ -99,7 +100,7 @@ export default function ResetPasswordPage() {
       } else {
         setStatus('saved')
         // The recovery session is a real session, so the user is now signed in.
-        setTimeout(() => router.push('/stash'), 1500)
+        setTimeout(() => router.push(APP_HOME), 1500)
       }
     } catch {
       setError('An unexpected error occurred')

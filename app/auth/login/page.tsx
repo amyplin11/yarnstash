@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth/AuthContext'
+import { APP_HOME } from '@/lib/auth/routes'
 import { supabase } from '@/lib/supabase/client'
 import { Card } from '@/app/components/ui/Card'
 import { Button } from '@/app/components/ui/Button'
@@ -26,7 +27,7 @@ export default function LoginPage() {
   // Redirect if already logged in
   useEffect(() => {
     if (user) {
-      router.push('/stash')
+      router.push(APP_HOME)
     }
   }, [user, router])
 
@@ -63,7 +64,7 @@ export default function LoginPage() {
           // Email confirmation is off, so the account is already usable and
           // Supabase has signed us in — telling them to check their inbox for a
           // mail that will never arrive just strands them on this page.
-          router.push('/stash')
+          router.push(APP_HOME)
         } else {
           setMessage('Account created! Check your email to confirm your account.')
         }
@@ -72,7 +73,7 @@ export default function LoginPage() {
         if (error) {
           setError(error.message)
         } else {
-          router.push('/stash')
+          router.push(APP_HOME)
         }
       }
     } catch {
