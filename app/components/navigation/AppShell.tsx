@@ -7,15 +7,17 @@ import { useHydrated } from '@/app/components/ui/useHydrated'
 
 /**
  * Two-column app frame: a fixed sidebar rail plus the content well, whose
- * offset tracks the rail's collapsed state. Auth screens opt out of the chrome
- * and render full-bleed.
+ * offset tracks the rail's collapsed state. Auth screens and the marketing
+ * page opt out of the chrome and render full-bleed.
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const collapsed = useSidebarCollapsed()
   const hydrated = useHydrated()
 
-  if (pathname.startsWith('/auth')) return <>{children}</>
+  // `/` is the signed-out marketing page and carries its own header; anyone
+  // signed in is redirected off it by middleware before this renders.
+  if (pathname === '/' || pathname.startsWith('/auth')) return <>{children}</>
 
   return (
     <>

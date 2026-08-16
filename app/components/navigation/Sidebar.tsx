@@ -24,7 +24,7 @@ import { useHydrated } from '@/app/components/ui/useHydrated'
 
 // The user's own things first, then the browse-everything destinations.
 const navItems = [
-  { name: 'Home', path: '/', icon: GridIcon, exact: true },
+  { name: 'Home', path: '/dashboard', icon: GridIcon, exact: true },
   { name: 'My Patterns', path: '/patterns', icon: FileIcon },
   { name: 'My Yarn Stash', path: '/stash', icon: InboxIcon },
   { name: 'Queue', path: '/queue', icon: ListIcon },
@@ -163,7 +163,7 @@ function CollapseToggle({ collapsed }: { collapsed: boolean }) {
 
 function Wordmark({ collapsed = false, onNavigate }: { collapsed?: boolean; onNavigate?: () => void }) {
   return (
-    <Link href="/" onClick={onNavigate} className="flex items-center gap-3.5" title={collapsed ? 'YarnStash' : undefined}>
+    <Link href="/dashboard" onClick={onNavigate} className="flex items-center gap-3.5" title={collapsed ? 'YarnStash' : undefined}>
       <YarnMark className="h-11 w-11" />
       {!collapsed && <span className="font-display text-2xl tracking-tight text-ink">YarnStash</span>}
     </Link>
