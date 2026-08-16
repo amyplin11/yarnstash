@@ -7,7 +7,10 @@ import { useAuth } from '@/lib/auth/AuthContext'
 import { Card } from '@/app/components/ui/Card'
 import { Badge } from '@/app/components/ui/Badge'
 import { Button } from '@/app/components/ui/Button'
-import { StitchCounters } from '@/app/components/patterns/StitchCounters'
+import { StitchCounters, type StepIndex } from '@/app/components/patterns/StitchCounters'
+import { StepCounterDock } from '@/app/components/patterns/StepCounterDock'
+import { usePatternCounters } from '@/app/components/patterns/usePatternCounters'
+import { ACCENT, stepAccent, stepLabel } from '@/app/components/patterns/stepAccent'
 import type { NotesContent, ChartContent, StitchPatternContent, SchematicContent } from '@/lib/types/pattern'
 
 interface Instruction {
@@ -113,6 +116,11 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
   const [selectedSize, setSelectedSize] = useState<string | null>(null)
   const [showSizePicker, setShowSizePicker] = useState(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // One counter store for the page: the dock and the overview card are never
+  // mounted together, but they must agree on what exists and where it is
+  // pinned, so both read from here.
+  const countersApi = usePatternCounters(id)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -346,6 +354,24 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
   const hasGauge = details?.gauge_stitches || details?.gauge_rows
   const currentStep = flatSteps[currentStepIndex]
 
+  // How each counter names and colours the step it is pinned to. Built from
+  // the same flattened list follow mode walks, so a counter's chip always
+  // matches the step card it belongs to.
+  const stepIndex: StepIndex = new Map(
+    flatSteps.map((s) => [
+      s.instruction.id,
+      { label: stepLabel(s.instruction), accent: stepAccent(s.instruction) },
+    ])
+  )
+
+  // Clicking a counter's step chip in the overview opens that step.
+  const jumpToStep = (instructionId: string) => {
+    const index = flatSteps.findIndex((s) => s.instruction.id === instructionId)
+    if (index < 0) return
+    setFollowMode(true)
+    goToStep(index)
+  }
+
   // ─── Size picker screen ───
   if (showSizePicker && details?.sizes && details.sizes.length > 0) {
     return (
@@ -401,9 +427,16 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
       (s) => s.instruction.id === instr.id
     ) + 1
 
+    // The dock borrows these, so the card and the dock always match.
+    const accent = stepAccent(instr)
+    const label = stepLabel(instr)
+    const stepIsCounted = countersApi.counters.some((c) => c.instruction_id === instr.id)
+
     return (
       <div className="min-h-screen bg-background">
-        <main className="container mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-8">
+        {/* Bottom padding clears the floating dock so it never covers the
+            Next button, which is the one control you always need. */}
+        <main className="container mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-8 pb-64">
           {/* Top bar */}
           <div className="flex items-center justify-between mb-6">
             <button
@@ -454,28 +487,18 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
           </div>
 
           {/* Main instruction card */}
-          <Card className={`p-8 mb-6 ${
-            instr.is_setup_row
-              ? 'border-blue-300 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/10'
-              : instr.is_decrease_row
-              ? 'border-amber-300 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/10'
-              : instr.is_increase_row
-              ? 'border-green-300 dark:border-green-800 bg-green-50/50 dark:bg-green-950/10'
-              : ''
-          }`}>
+          {/* The halo appears when this step owns a counter — the card end of
+              the same tie the dock's rail makes from below. */}
+          <Card
+            className={`p-8 mb-6 transition-shadow ${ACCENT[accent].card} ${
+              stepIsCounted ? ACCENT[accent].ring : ''
+            }`}
+          >
             {/* Row/step label */}
             <div className="flex items-center gap-2 mb-4">
-              {instr.row_start ? (
-                <span className="text-lg font-mono font-bold text-terracotta dark:text-terracotta">
-                  {instr.row_start === instr.row_end || !instr.row_end
-                    ? `Row ${instr.row_start}`
-                    : `Rows ${instr.row_start}–${instr.row_end}`}
-                </span>
-              ) : (
-                <span className="text-lg font-mono font-bold text-terracotta dark:text-terracotta">
-                  Step {instr.step_number}
-                </span>
-              )}
+              <span className={`text-lg font-mono font-bold ${ACCENT[accent].text}`}>
+                {label}
+              </span>
 
               {/* Flags */}
               {instr.is_setup_row && <Badge text="setup" variant="info" />}
@@ -519,9 +542,6 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
             )}
           </Card>
 
-          {/* Counters — kept within thumb's reach of the step buttons */}
-          <StitchCounters patternId={id} variant="compact" className="mb-6" />
-
           {/* Navigation */}
           <div className="flex items-center justify-between">
             <Button
@@ -549,6 +569,15 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
             </Button>
           </div>
         </main>
+
+        {/* Floating counters for this step — outside <main> because it is
+            fixed to the viewport, not part of the scroll flow. */}
+        <StepCounterDock
+          api={countersApi}
+          instructionId={instr.id}
+          accent={accent}
+          label={label}
+        />
       </div>
     )
   }
@@ -639,7 +668,11 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
         )}
 
         {/* Stitch counters */}
-        <StitchCounters patternId={id} />
+        <StitchCounters
+          api={countersApi}
+          stepIndex={stepIndex}
+          onJumpToStep={jumpToStep}
+        />
 
         {/* Info cards row */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">

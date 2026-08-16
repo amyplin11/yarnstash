@@ -144,6 +144,12 @@ export interface PatternCounter {
   id: string
   user_id: string
   pattern_id: string
+  /**
+   * The instruction this counter belongs to, or null for a pattern-wide
+   * counter. Nulled rather than deleted if the instruction goes away, so a
+   * re-extraction downgrades the counter instead of losing the count.
+   */
+  instruction_id: string | null
   name: string
   value: number
   position: number
