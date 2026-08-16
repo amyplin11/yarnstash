@@ -48,7 +48,7 @@ Always run before committing: `npm run lint && npm run typecheck`. The build (`n
 
 ### Database tables (Supabase)
 
-**User-scoped (RLS by `user_id`):** `stash_yarns`, `projects`, `project_yarns`, `patterns`, `pattern_details`, `pattern_materials`, `pattern_sections`, `pattern_instructions`, `pattern_stitch_glossary`, `user_pattern_progress`, `pattern_notes`, `pattern_jobs`
+**User-scoped (RLS by `user_id`):** `stash_yarns`, `projects`, `project_yarns`, `patterns`, `pattern_details`, `pattern_materials`, `pattern_sections`, `pattern_instructions`, `pattern_stitch_glossary`, `user_pattern_progress`, `pattern_notes`, `pattern_jobs`, `pattern_counters`
 
 `pattern_jobs` is read-only to users (select policy only) — it is written by the background extraction worker via the service-role client.
 
@@ -70,6 +70,10 @@ The brand list behind those last two routes is derived, not stored. There is no 
 - `/api/patterns/upload` — PDF upload → store in Supabase Storage → detect available sizes (phase 1)
 - `/api/patterns/upload/extract` — Queue a full extraction for a selected size; returns `202 { jobId }` (phase 2)
 - `/api/patterns/jobs/[id]` — Poll extraction job status
+- `/api/patterns/[id]/counters` — List (GET) and add (POST) a pattern's stitch counters
+- `/api/patterns/[id]/counters/[counterId]` — Rename or set the value (PATCH), remove (DELETE)
+
+Counters are named tallies a knitter keeps while working a pattern, stored one row per counter in `pattern_counters` — `user_pattern_progress.row_counter` / `repeat_counter` are two fixed unnamed slots and can't be renamed or multiplied. `StitchCounters` (`app/components/patterns/`) renders them as a card on the pattern overview and as a compact strip in follow-along mode; taps update locally and the write is debounced, with pending values flushed on unmount.
 
 ### Context providers
 
