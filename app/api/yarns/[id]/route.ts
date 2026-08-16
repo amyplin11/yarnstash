@@ -14,9 +14,12 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid yarn ID' }, { status: 400 })
     }
 
+    // `*` no longer carries the raw Ravelry payload — see the catalog-bloat
+    // migration. Photos are left off for the same reason as the list route:
+    // no caller reads them, and there is no yarn detail page yet.
     const { data, error } = await supabase
       .from('yarns')
-      .select('*, yarn_fibers(*), yarn_photos(*)')
+      .select('*, yarn_fibers(*)')
       .eq('ravelry_id', ravelryId)
       .single()
 

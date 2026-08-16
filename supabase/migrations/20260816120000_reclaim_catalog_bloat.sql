@@ -1,0 +1,72 @@
+-- Reclaim database space: the Ravelry catalog import, not user data, is what
+-- pushed this project over its storage quota.
+--
+-- Measured on 2026-08-16 against the hosted project (98,091 yarns):
+--
+--   table         rows      logical bytes   note
+--   yarns         98,091    ~494 MB         raw_data alone is ~444 MB (90%)
+--   yarn_photos   275,395   ~159 MB         six URL variants per photo row
+--   yarn_fibers   177,644   ~9 MB
+--   all user data ~165      <1 MB           patterns, stash, projects, jobs
+--
+-- Nothing in the app reads `yarns.raw_data`. It is written once by
+-- scripts/import-yarns.ts and never selected again: the list route explicitly
+-- excludes it, `CatalogYarn` does not declare it, and generate-seed.ts already
+-- writes it out as '{}' with the comment "never read by the app". It is also
+-- fully re-derivable by re-running the import against Ravelry, so dropping it
+-- loses nothing that cannot be rebuilt.
+
+-- ─── Part A: drop the unused raw Ravelry payload ─────────────────────────────
+
+alter table yarns drop column if exists raw_data;
+
+-- DROP COLUMN is metadata-only in Postgres — it marks the attribute dead but
+-- does not rewrite the heap or its TOAST table, so disk usage will not move
+-- until the table is rewritten. Run this separately, outside a transaction:
+--
+--   vacuum (full, analyze) yarns;
+--
+-- It takes an ACCESS EXCLUSIVE lock (yarn browsing is unavailable for the
+-- couple of minutes it runs on ~98k rows) and needs temporary free space of
+-- roughly the current table size while it writes the new copy. If the project
+-- is hard against its quota and the rewrite cannot allocate that headroom, do
+-- Part B first — freeing yarn_photos gives VACUUM FULL the room to work.
+
+-- ─── Part B (optional): trim the unused photo variants ───────────────────────
+--
+-- yarn_photos holds 275,395 rows and is the second-largest object here. No
+-- component reads it: `yarn_photos` appears in lib/types/yarn.ts as a type
+-- declaration and in two API selects, and nowhere else. Every image the UI
+-- actually renders comes from `yarns.first_photo_url`.
+--
+-- This block is left commented out because it is a product decision, not a
+-- correctness one: it forecloses building a photo gallery from stored data
+-- without re-importing. Uncomment whichever variant you want.
+--
+-- Variant 1 — keep one row per yarn and only the two useful sizes. Cuts the
+-- table by roughly 90% while leaving a thumbnail and a detail image in place.
+--
+--   delete from yarn_photos where sort_order > 0;
+--   alter table yarn_photos
+--     drop column if exists small_url,
+--     drop column if exists small2_url,
+--     drop column if exists medium2_url,
+--     drop column if exists shelved_url;
+--   vacuum (full, analyze) yarn_photos;
+--
+-- Variant 2 — drop it outright. first_photo_url already covers every current
+-- use, and the import script can rebuild the table if a gallery is ever added.
+--
+--   drop table if exists yarn_photos;
+--
+-- Either variant requires the API changes in this branch, which stop the two
+-- yarns routes from selecting `yarn_photos(*)`.
+
+-- ─── Note on bloat from repeated imports ─────────────────────────────────────
+--
+-- The importer upserts yarns (ON CONFLICT DO UPDATE) and does a
+-- delete-then-insert for photos on every pass. Both leave dead tuples, and the
+-- script supports resuming, so the physical size on disk is larger than the
+-- logical figures above by however many times a row has been rewritten.
+-- Autovacuum makes that space reusable but never returns it to the OS, which
+-- is why the VACUUM FULL steps above matter as much as the DROP COLUMN.
