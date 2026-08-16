@@ -54,6 +54,8 @@ interface PatternData {
     pdf_url?: string
     pdf_filename?: string
     notes?: string
+    /** The size chosen at upload; instructions were extracted resolved to it. */
+    selected_size?: string
     created_at: string
   }
   details: {
@@ -166,8 +168,12 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
       }
       const result = await response.json()
       setData(result)
-      if (result.wip?.selected_size) {
-        setSelectedSize(result.wip.selected_size)
+      // The size picked at upload lives on the pattern row; progress only carries
+      // one once the knitter has started. Prefer the saved progress, fall back to
+      // the upload choice so we never ask for a size the knitter already gave us.
+      const size = result.wip?.selected_size ?? result.pattern?.selected_size
+      if (size) {
+        setSelectedSize(size)
       }
       if (result.sections?.length > 0) {
         setExpandedSections(new Set([result.sections[0].id]))
@@ -222,9 +228,11 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
         setCurrentStepIndex(savedIndex)
       }
     }
-    // If the pattern has sizes and none is selected yet, show size picker first
+    // Only ask for a size if we don't already have one. A pattern extracted for a
+    // single size carries no size_variations, so asking again would decide nothing.
     const hasSizes = data?.details?.sizes && data.details.sizes.length > 0
-    if (hasSizes && !selectedSize) {
+    const knownSize = selectedSize ?? data?.pattern?.selected_size
+    if (hasSizes && !knownSize) {
       setShowSizePicker(true)
       return
     }
@@ -344,6 +352,9 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
   const { pattern, details, materials, sections } = data
   const hasGauge = details?.gauge_stitches || details?.gauge_rows
   const currentStep = flatSteps[currentStepIndex]
+  // Set when the size was chosen at upload — the instructions are baked to it and
+  // can't be re-filtered here, so the size is shown rather than offered.
+  const extractedSize = pattern.selected_size
 
   // ─── Size picker screen ───
   if (showSizePicker && details?.sizes && details.sizes.length > 0) {
@@ -605,31 +616,47 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
           )}
         </div>
 
-        {/* Size picker */}
+        {/* Size — locked when the pattern was extracted for one size, a picker otherwise */}
         {details?.sizes && details.sizes.length > 0 && (
           <Card className="p-5 mb-8">
             <h3 className="text-sm font-semibold text-foreground/60 uppercase tracking-wide mb-3">
-              {selectedSize ? 'Your size' : 'Choose your size'}
+              {extractedSize || selectedSize ? 'Your size' : 'Choose your size'}
             </h3>
-            <div className="flex flex-wrap gap-2">
-              {details.sizes.map((size) => (
-                <button
-                  key={size}
-                  onClick={() => handleSizeSelect(selectedSize === size ? null : size)}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    selectedSize === size
-                      ? 'bg-terracotta text-white'
-                      : 'bg-foreground/5 text-foreground/70 hover:bg-foreground/10'
-                  }`}
-                >
-                  {size}
-                </button>
-              ))}
-            </div>
-            {selectedSize && (
-              <p className="text-xs text-foreground/50 mt-2">
-                Instructions will show values for size {selectedSize}. Click again to deselect.
-              </p>
+            {extractedSize ? (
+              <>
+                <div className="flex flex-wrap gap-2">
+                  <span className="px-3 py-1.5 rounded-lg text-sm font-medium bg-terracotta text-white">
+                    {extractedSize}
+                  </span>
+                </div>
+                <p className="text-xs text-foreground/50 mt-2">
+                  Every stitch count in this pattern is already resolved for size {extractedSize}.
+                  To knit another size, upload the PDF again and pick it there.
+                </p>
+              </>
+            ) : (
+              <>
+                <div className="flex flex-wrap gap-2">
+                  {details.sizes.map((size) => (
+                    <button
+                      key={size}
+                      onClick={() => handleSizeSelect(selectedSize === size ? null : size)}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                        selectedSize === size
+                          ? 'bg-terracotta text-white'
+                          : 'bg-foreground/5 text-foreground/70 hover:bg-foreground/10'
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+                {selectedSize && (
+                  <p className="text-xs text-foreground/50 mt-2">
+                    Instructions will show values for size {selectedSize}. Click again to deselect.
+                  </p>
+                )}
+              </>
             )}
           </Card>
         )}
@@ -735,7 +762,7 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
               <h2 className="text-lg font-semibold text-foreground">Pattern Instructions</h2>
               {flatSteps.length > 0 && (
                 <Button variant="primary" onClick={enterFollowMode}>
-                  {data.wip?.current_instruction_id ? 'Continue' : 'Step by Step'}
+                  {data.wip?.current_instruction_id ? 'Continue' : 'Begin Knitting'}
                 </Button>
               )}
             </div>
