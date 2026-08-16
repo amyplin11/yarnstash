@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { supabase } from '@/lib/supabase/client'
 import { Card } from '@/app/components/ui/Card'
@@ -12,8 +12,13 @@ type Mode = 'signin' | 'signup' | 'forgot'
 
 const feedbackLinkStyles = 'text-terracotta dark:text-terracotta hover:underline'
 
-export default function LoginPage() {
-  const [mode, setMode] = useState<Mode>('signin')
+function LoginPageInner() {
+  // The marketing page has separate "Log in" and "Sign up" calls to action, so
+  // `?mode=signup` opens the right form instead of dropping everyone on signin.
+  const searchParams = useSearchParams()
+  const [mode, setMode] = useState<Mode>(
+    searchParams.get('mode') === 'signup' ? 'signup' : 'signin'
+  )
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -399,5 +404,15 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+// useSearchParams() opts the subtree into client-side rendering, which Next
+// requires a Suspense boundary for. Without it the build fails on this route.
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageInner />
+    </Suspense>
   )
 }

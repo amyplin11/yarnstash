@@ -1,10 +1,15 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
 // The only pages a signed-out visitor may see. Everything else redirects to
-// login. `/` is the marketing home (a server component on mock data, no user
-// records), and reset-password has to stay reachable or a locked-out user
-// could never get back in.
+// `/`, the marketing page, which is where they log in or sign up from. `/` is a
+// server component with no user records, and reset-password has to stay
+// reachable or a locked-out user could never get back in.
 const PUBLIC_PATHS = new Set(['/', '/auth/login', '/auth/reset-password'])
+
+// Where a signed-out visitor is sent, and where a signed-in one is sent if they
+// land on the marketing page.
+const MARKETING_PATH = '/'
+const APP_HOME = '/dashboard'
 
 // supabase-js derives its storage key from the project ref, and the cookie
 // adapters in lib/supabase/{client,server}.ts read and write it under that
@@ -58,19 +63,32 @@ export function middleware(request: NextRequest) {
   // them to an HTML login page would break that contract.
   if (pathname.startsWith('/api/')) return NextResponse.next()
 
-  if (PUBLIC_PATHS.has(pathname)) return NextResponse.next()
-
   const cookieName = authCookieName()
   const raw = cookieName ? request.cookies.get(cookieName)?.value : undefined
+  // No cookie name means the Supabase env is missing, so nothing can be signed
+  // in anyway — fail closed rather than expose every page.
+  const signedIn = Boolean(raw && sessionUsable(raw))
 
-  // No cookie name means the Supabase env is missing, so nothing can be
-  // signed in anyway — fail closed rather than expose every page.
-  if (raw && sessionUsable(raw)) return NextResponse.next()
+  // The marketing page is for visitors. Someone already signed in who lands on
+  // `/` — a bookmark, or the browser's default — wants the app, not the pitch.
+  if (pathname === MARKETING_PATH) {
+    if (!signedIn) return NextResponse.next()
+    const appUrl = request.nextUrl.clone()
+    appUrl.pathname = APP_HOME
+    appUrl.search = ''
+    return NextResponse.redirect(appUrl)
+  }
 
-  const loginUrl = request.nextUrl.clone()
-  loginUrl.pathname = '/auth/login'
-  loginUrl.search = ''
-  return NextResponse.redirect(loginUrl)
+  if (PUBLIC_PATHS.has(pathname)) return NextResponse.next()
+
+  if (signedIn) return NextResponse.next()
+
+  // Signed-out visitors land on the marketing page rather than a bare login
+  // form, so the first thing they see explains what this is.
+  const marketingUrl = request.nextUrl.clone()
+  marketingUrl.pathname = MARKETING_PATH
+  marketingUrl.search = ''
+  return NextResponse.redirect(marketingUrl)
 }
 
 export const config = {
