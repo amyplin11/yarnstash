@@ -18,7 +18,9 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = createServerClient()
 
-    // Select everything except raw_data (too large for list views)
+    // Photos are not joined here: the card grid renders `first_photo_url`, and
+    // pulling yarn_photos(*) meant six URL variants per photo row on top of
+    // every one of the 40 yarns in a page, for columns nothing reads.
     let dbQuery = supabase
       .from('yarns')
       .select(
@@ -34,7 +36,7 @@ export async function GET(request: NextRequest) {
          rating_average, rating_count, rating_total,
          notes_html, fiber_content, first_photo_url,
          imported_at, updated_at,
-         yarn_fibers(*), yarn_photos(*)`,
+         yarn_fibers(*)`,
         { count: 'exact' }
       )
 

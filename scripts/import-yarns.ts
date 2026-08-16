@@ -211,7 +211,10 @@ function extractStructuredFields(raw: any) {
       raw.first_photo?.small_url ||
       null,
 
-    raw_data: raw,
+    // The full Ravelry payload is deliberately not stored. Kept as raw_data it
+    // averaged ~4.7 KB per yarn — ~444 MB across the catalog, roughly 90% of
+    // the table — and no code path ever read it back. Anything needed from it
+    // should get its own column here instead.
   }
 }
 
