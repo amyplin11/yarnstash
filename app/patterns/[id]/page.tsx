@@ -51,6 +51,7 @@ interface PatternData {
     designer?: string
     difficulty?: string
     pattern_type?: string
+    selected_size?: string
     pdf_url?: string
     pdf_filename?: string
     notes?: string
@@ -88,6 +89,45 @@ interface FlatStep {
   sectionName: string
   instruction: Instruction
   globalIndex: number
+}
+
+type Needle = { size: string; type: string; length?: string }
+
+// Patterns state needles compactly — "4 mm [US6] / 40, 60 and 80 and/or 100 cm"
+// — and extraction expands that into one row per length. Regroup so the card
+// reads as the two or three needles you actually buy, not eight.
+function groupNeedles(needles: Needle[]): Array<{ label: string; lengths: string[] }> {
+  const groups: Array<{ label: string; lengths: string[] }> = []
+  const byLabel = new Map<string, { label: string; lengths: string[] }>()
+  for (const needle of needles) {
+    const label = [needle.size, needle.type].filter(Boolean).join(' ')
+    let group = byLabel.get(label)
+    if (!group) {
+      group = { label, lengths: [] }
+      byLabel.set(label, group)
+      groups.push(group)
+    }
+    if (needle.length && !group.lengths.includes(needle.length)) {
+      group.lengths.push(needle.length)
+    }
+  }
+  return groups
+}
+
+const LENGTH_RE = /^\s*([\d.,]+)\s*([^\s[\]]+)\s*(?:\[\s*([\d.,]+)\s*([^\]]*?)\s*\])?\s*$/
+
+// "40 cm [16 inches]" x4 -> "40, 60, 80, 100 cm [16, 24, 32, 40 inches]".
+// Falls back to a plain join whenever the lengths don't share one shape.
+function formatLengths(lengths: string[]): string {
+  if (lengths.length <= 1) return lengths[0] ?? ''
+  const parsed = lengths.map((length) => length.match(LENGTH_RE))
+  if (parsed.some((match) => !match)) return lengths.join(', ')
+  const units = parsed.map((match) => match![2])
+  if (new Set(units).size > 1) return lengths.join(', ')
+  const metric = `${parsed.map((match) => match![1]).join(', ')} ${units[0]}`
+  const altUnits = parsed.map((match) => match![4])
+  if (parsed.some((match) => !match![3]) || new Set(altUnits).size > 1) return metric
+  return `${metric} [${parsed.map((match) => match![3]).join(', ')} ${altUnits[0]}]`
 }
 
 const difficultyVariant: Record<string, 'success' | 'info' | 'warning' | 'frogged'> = {
@@ -166,8 +206,12 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
       }
       const result = await response.json()
       setData(result)
-      if (result.wip?.selected_size) {
-        setSelectedSize(result.wip.selected_size)
+      // The size picked at upload wins: extraction resolved every instruction
+      // to it, so it is a property of the stored pattern, not of this user's
+      // progress. Fall back to the wip row for all-sizes extractions.
+      const size = result.pattern?.selected_size ?? result.wip?.selected_size ?? null
+      if (size) {
+        setSelectedSize(size)
       }
       if (result.sections?.length > 0) {
         setExpandedSections(new Set([result.sections[0].id]))
@@ -222,9 +266,10 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
         setCurrentStepIndex(savedIndex)
       }
     }
-    // If the pattern has sizes and none is selected yet, show size picker first
+    // If the pattern has sizes and none is selected yet, show size picker first.
+    // A pattern extracted for one size has nothing to ask about.
     const hasSizes = data?.details?.sizes && data.details.sizes.length > 0
-    if (hasSizes && !selectedSize) {
+    if (hasSizes && !selectedSize && !data?.pattern.selected_size) {
       setShowSizePicker(true)
       return
     }
@@ -344,9 +389,13 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
   const { pattern, details, materials, sections } = data
   const hasGauge = details?.gauge_stitches || details?.gauge_rows
   const currentStep = flatSteps[currentStepIndex]
+  // A size chosen at upload is baked into the extraction: instructions carry
+  // that size's numbers and no size_variations, so there is nothing to switch
+  // between. Show it as a fact rather than an editable picker.
+  const lockedSize = pattern.selected_size ?? null
 
   // ─── Size picker screen ───
-  if (showSizePicker && details?.sizes && details.sizes.length > 0) {
+  if (showSizePicker && !lockedSize && details?.sizes && details.sizes.length > 0) {
     return (
       <div className="min-h-screen bg-background">
         <main className="container mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-8">
@@ -605,8 +654,23 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
           )}
         </div>
 
-        {/* Size picker */}
-        {details?.sizes && details.sizes.length > 0 && (
+        {/* Size — fixed when the extraction was run for one size */}
+        {lockedSize ? (
+          <Card className="p-5 mb-8">
+            <h3 className="text-sm font-semibold text-foreground/60 uppercase tracking-wide mb-3">
+              Your size
+            </h3>
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="px-3 py-1.5 rounded-lg text-sm font-medium bg-terracotta text-white">
+                {lockedSize}
+              </span>
+              <p className="text-xs text-foreground/50">
+                Extracted for size {lockedSize} — every instruction below already shows its
+                numbers. To knit another size, upload the pattern again and pick that size.
+              </p>
+            </div>
+          </Card>
+        ) : details?.sizes && details.sizes.length > 0 ? (
           <Card className="p-5 mb-8">
             <h3 className="text-sm font-semibold text-foreground/60 uppercase tracking-wide mb-3">
               {selectedSize ? 'Your size' : 'Choose your size'}
@@ -632,7 +696,7 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
               </p>
             )}
           </Card>
-        )}
+        ) : null}
 
         {/* Info cards row */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
@@ -660,10 +724,13 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
           {details?.needles && details.needles.length > 0 && (
             <Card className="p-5">
               <h3 className="text-sm font-semibold text-foreground/60 uppercase tracking-wide mb-3">Needles</h3>
-              <ul className="space-y-1">
-                {details.needles.map((needle, i) => (
-                  <li key={i} className="text-sm text-foreground">
-                    {needle.size} {needle.type}{needle.length ? ` — ${needle.length}` : ''}
+              <ul className="space-y-2">
+                {groupNeedles(details.needles).map((group) => (
+                  <li key={group.label} className="text-sm text-foreground">
+                    {group.label}
+                    {group.lengths.length > 0 && (
+                      <span className="block text-foreground/60">{formatLengths(group.lengths)}</span>
+                    )}
                   </li>
                 ))}
               </ul>

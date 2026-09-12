@@ -157,11 +157,11 @@ export default function PatternsPage() {
                       )}
 
                       <dl className="mt-6 space-y-1 text-sm text-parchment/75">
-                        {pattern.progress?.selected_size && (
+                        {(pattern.selected_size ?? pattern.progress?.selected_size) && (
                           <div className="flex gap-2">
                             <dt>Size</dt>
                             <dd className="font-medium text-parchment">
-                              {pattern.progress.selected_size}
+                              {pattern.selected_size ?? pattern.progress?.selected_size}
                             </dd>
                           </div>
                         )}
