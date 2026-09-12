@@ -22,20 +22,14 @@ comment on column patterns.storage_path is
 -- Backfill from the existing public URLs, which all have the shape
 -- https://<ref>.supabase.co/storage/v1/object/public/pattern-pdfs/<path>
 --
--- Wrapped in EXECUTE on purpose. Postgres parses a whole multi-statement batch
--- before running any of it, so a plain UPDATE here fails with
--- `column "storage_path" does not exist` — the ALTER above has not executed at
--- parse time. Dynamic SQL defers parsing until the statement actually runs,
--- which keeps this file runnable as a single paste.
-do $$
-begin
-  execute $sql$
-    update patterns
-       set storage_path = split_part(pdf_url, '/pattern-pdfs/', 2)
-     where storage_path is null
-       and pdf_url like '%/pattern-pdfs/%'
-  $sql$;
-end $$;
+-- ⚠️ Apply this file with the Supabase CLI, or by running each statement
+-- separately. Pasting it whole into the dashboard SQL editor fails with
+-- `42703: column "storage_path" does not exist`: the editor does not
+-- necessarily execute the ALTER above before parsing this UPDATE.
+update patterns
+   set storage_path = split_part(pdf_url, '/pattern-pdfs/', 2)
+ where storage_path is null
+   and pdf_url like '%/pattern-pdfs/%';
 
 -- Close the bucket. Until now this was `public = true`, which serves
 -- /storage/v1/object/public/pattern-pdfs/<path> to anyone, without auth and
