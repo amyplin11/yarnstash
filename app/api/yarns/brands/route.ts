@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase/server'
+import { getRequestUser } from '@/lib/auth/require-user'
 import { getBrandIndex, searchBrands } from '@/lib/yarns/brand-index'
 
 const DEFAULT_LIMIT = 20
@@ -15,15 +15,11 @@ export async function GET(request: NextRequest) {
   )
 
   try {
-    const supabase = createServerClient()
-
+    const { supabase, userId } = await getRequestUser()
     // The catalog is only readable by authenticated users. Without this check
     // an anonymous request would sweep zero rows and could poison the cache.
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
 
-    if (!user) {
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

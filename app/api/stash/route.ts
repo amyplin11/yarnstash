@@ -1,22 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase/server'
+import { getRequestUser } from '@/lib/auth/require-user'
 
 // GET all stash yarns
 export async function GET() {
   try {
-    const supabase = createServerClient()
-
-    // Get the current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-    if (authError || !user) {
+    const { supabase, userId } = await getRequestUser()
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { data, error } = await supabase
       .from('stash_yarns')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -53,12 +49,8 @@ const NUMBER_FIELDS = ['yardage', 'grams_per_skein', 'skeins', 'purchase_price']
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const supabase = createServerClient()
-
-    // Get the current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-    if (authError || !user) {
+    const { supabase, userId } = await getRequestUser()
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -71,7 +63,7 @@ export async function POST(request: NextRequest) {
 
     // Whitelist rather than spreading the body — an unknown key would otherwise
     // fail the insert with an opaque 500.
-    const record: Record<string, unknown> = { user_id: user.id }
+    const record: Record<string, unknown> = { user_id: userId }
     for (const field of TEXT_FIELDS) {
       const value = body[field]
       if (typeof value === 'string' && value.trim()) record[field] = value.trim()

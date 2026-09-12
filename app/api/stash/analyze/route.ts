@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
-import { createServerClient } from '@/lib/supabase/server'
+import { getRequestUser } from '@/lib/auth/require-user'
 
 // Reading a ball band is a short vision extraction. Change this one constant to
 // move tiers (the pattern routes currently run on 'claude-sonnet-5').
@@ -64,10 +64,8 @@ Return null for any field you cannot read with confidence. Do not guess a brand 
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerClient()
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const { supabase, userId } = await getRequestUser()
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
