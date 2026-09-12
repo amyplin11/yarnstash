@@ -107,7 +107,7 @@ Types are in `lib/types/` and re-exported from `lib/types/index.ts`:
 
 `/api/*` is deliberately exempt: those routes authenticate themselves and answer `401` in JSON, and redirecting them to an HTML login page would break that contract.
 
-Treat the middleware as a routing gate, not the security boundary. Real enforcement remains RLS on every user-scoped table plus the per-route `createServerClient()` + `getUser()` checks. Pages still run their own `useAuth()` checks, which now act as a second layer rather than the only one.
+Treat the middleware as a routing gate, not the security boundary. Real enforcement remains RLS on every user-scoped table plus the per-route `getRequestUser()` checks. Pages still run their own `useAuth()` checks, which now act as a second layer rather than the only one.
 
 ### Environment variables
 
@@ -138,7 +138,7 @@ Required in `.env.local` (see `.env.example` for the template):
 
 All API routes in `app/api/` follow this structure:
 1. Parse request (searchParams for GET, body for POST/PUT/DELETE)
-2. Auth check via `createServerClient()` + `supabase.auth.getUser()` for user-scoped routes
+2. Auth check via `getRequestUser()` from `lib/auth/require-user.ts` for user-scoped routes — it returns `{ supabase, userId }`; answer `401` when `userId` is `null`. Do **not** call `supabase.auth.getUser()` per request: it is a network call to `/auth/v1/user`, which Supabase caps at 30 requests per 5 minutes per IP, and one request per route blows that budget during ordinary use. `getRequestUser()` validates a given access token once and caches the answer for 60s (bounded by the token's own expiry)
 3. Database operation
 4. Return `NextResponse.json()` with appropriate status codes
 

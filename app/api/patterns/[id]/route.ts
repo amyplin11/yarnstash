@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase/server'
+import { getRequestUser } from '@/lib/auth/require-user'
 
 export async function GET(
   _request: NextRequest,
@@ -7,10 +7,8 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    const supabase = createServerClient()
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const { supabase, userId } = await getRequestUser()
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -19,7 +17,7 @@ export async function GET(
       .from('patterns')
       .select('*')
       .eq('id', id)
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .single()
 
     if (patternError || !pattern) {
@@ -47,7 +45,7 @@ export async function GET(
         .from('user_pattern_progress')
         .select('*')
         .eq('pattern_id', id)
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .single(),
     ])
 
@@ -97,10 +95,8 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params
-    const supabase = createServerClient()
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const { supabase, userId } = await getRequestUser()
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -109,7 +105,7 @@ export async function DELETE(
       .from('patterns')
       .select('id, user_id, pdf_url')
       .eq('id', id)
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .single()
 
     if (fetchError || !pattern) {
@@ -118,7 +114,7 @@ export async function DELETE(
 
     // Delete the PDF from storage if it exists
     if (pattern.pdf_url) {
-      const storagePath = `${user.id}/${pattern.pdf_url.split(`${user.id}/`).pop()}`
+      const storagePath = `${userId}/${pattern.pdf_url.split(`${userId}/`).pop()}`
       await supabase.storage.from('pattern-pdfs').remove([storagePath])
     }
 
@@ -127,7 +123,7 @@ export async function DELETE(
       .from('patterns')
       .delete()
       .eq('id', id)
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
 
     if (deleteError) {
       console.error('Error deleting pattern:', deleteError)

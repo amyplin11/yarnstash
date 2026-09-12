@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
-import { createServerClient } from '@/lib/supabase/server'
+import { getRequestUser } from '@/lib/auth/require-user'
 
 // Size detection is a small, fast call, but it still reads the whole PDF.
 export const maxDuration = 60
@@ -27,13 +27,8 @@ const SIZES_SCHEMA = {
 // Phase 1: Upload PDF to storage + extract available sizes via a lightweight Claude call
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerClient()
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const { supabase, userId } = await getRequestUser()
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -51,7 +46,7 @@ export async function POST(request: NextRequest) {
     const buffer = await file.arrayBuffer()
 
     // Upload PDF to Supabase Storage
-    const storagePath = `${user.id}/${Date.now()}-${file.name}`
+    const storagePath = `${userId}/${Date.now()}-${file.name}`
     const { error: uploadError } = await supabase.storage
       .from('pattern-pdfs')
       .upload(storagePath, buffer, {
