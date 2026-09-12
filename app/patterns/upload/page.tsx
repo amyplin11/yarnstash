@@ -30,29 +30,75 @@ function Spinner({ className = '' }: { className?: string }) {
   )
 }
 
-/** Horizontal progress rail: numbered discs joined by hairlines. */
-function Stepper({ active }: { active: number }) {
+/**
+ * Horizontal progress rail: numbered discs joined by hairlines.
+ *
+ * A disc is in one of four states — upcoming, current, processing, done — so
+ * the rail alone says where the upload is, and a step that is actively working
+ * (detecting sizes, extracting) reads as in-flight rather than merely reached.
+ */
+function Stepper({
+  active,
+  processing,
+  complete,
+}: {
+  active: number
+  processing: boolean
+  complete: boolean
+}) {
   return (
     <ol className="mx-auto mt-8 flex max-w-2xl items-start">
       {STEPS.map((label, i) => {
         const step = i + 1
-        const done = step < active
-        const current = step === active
+        const done = complete || step < active
+        const current = !done && step === active
+        const busy = current && processing
 
         return (
-          <li key={label} className="flex flex-1 flex-col items-center">
+          <li
+            key={label}
+            className="flex flex-1 flex-col items-center"
+            aria-current={current ? 'step' : undefined}
+          >
             <div className="flex w-full items-center">
-              <span className={`h-px flex-1 ${i === 0 ? 'bg-transparent' : 'bg-line-strong'}`} />
               <span
-                className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full font-display text-xl ring-[5px] ring-surface ${
-                  done || current ? 'bg-sage text-parchment' : 'bg-sand-soft text-ink-soft'
+                className={`h-px flex-1 ${
+                  i === 0 ? 'bg-transparent' : step <= active ? 'bg-sage' : 'bg-line-strong'
                 }`}
-              >
-                {done ? <CheckIcon className="h-5 w-5" /> : step}
+              />
+              <span className="relative flex h-12 w-12 shrink-0 items-center justify-center">
+                {/*
+                  Radiating halo for the working step. It sits behind the disc,
+                  whose 5px surface ring hides the first moments of the pulse —
+                  what shows is a ripple leaving the edge, not a glow under it.
+                */}
+                {busy && (
+                  <span
+                    className="absolute inset-0 animate-ping rounded-full bg-sage opacity-20"
+                    aria-hidden="true"
+                  />
+                )}
+                <span
+                  className={`relative flex h-12 w-12 items-center justify-center rounded-full font-display text-xl ring-[5px] ring-surface ${
+                    done || current ? 'bg-sage text-parchment' : 'bg-sand-soft text-ink-soft'
+                  }`}
+                >
+                  {done ? (
+                    <CheckIcon className="h-5 w-5" />
+                  ) : busy ? (
+                    <Spinner className="h-6 w-6" />
+                  ) : (
+                    step
+                  )}
+                </span>
               </span>
               <span
                 className={`h-px flex-1 ${
-                  i === STEPS.length - 1 ? 'bg-transparent' : 'bg-line-strong'
+                  i === STEPS.length - 1
+                    ? 'bg-transparent'
+                    : step < active
+                      ? 'bg-sage'
+                      : 'bg-line-strong'
                 }`}
               />
             </div>
@@ -60,6 +106,7 @@ function Stepper({ active }: { active: number }) {
               className={`eyebrow mt-3 text-center ${done || current ? 'text-ink' : 'text-ink-soft'}`}
             >
               {label}
+              <span className="sr-only">{done ? ' — complete' : busy ? ' — in progress' : ''}</span>
             </span>
           </li>
         )
@@ -186,7 +233,7 @@ export default function UploadPatternPage() {
         </div>
       </section>
 
-      <Stepper active={activeStep} />
+      <Stepper active={activeStep} processing={isBusy} complete={isSuccess} />
 
       {fileError && (
         <div className="mx-auto mt-6 max-w-2xl rounded-2xl border border-clay-soft bg-clay-soft px-5 py-3 text-center">
