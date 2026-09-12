@@ -52,6 +52,7 @@ interface PatternData {
     difficulty?: string
     pattern_type?: string
     pdf_url?: string
+    storage_path?: string
     pdf_filename?: string
     notes?: string
     created_at: string
@@ -912,7 +913,7 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
         )}
 
         {/* PDF link */}
-        {pattern.pdf_url && (
+        {(pattern.storage_path || pattern.pdf_url) && (
           <Card className="p-6 mt-8">
             <div className="flex items-center justify-between">
               <div>
@@ -920,7 +921,7 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
                 <p className="text-sm text-foreground/60">{pattern.pdf_filename || 'pattern.pdf'}</p>
               </div>
               <a
-                href={pattern.pdf_url}
+                href={`/api/patterns/${pattern.id}/pdf`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 px-4 py-2 bg-terracotta text-white rounded-lg hover:bg-terracotta-deep transition-colors text-sm font-medium"

@@ -50,6 +50,8 @@ flowchart TD
     JOB --> PJ
     U -->|4. render| VIEW["GET /api/patterns/:id"]
     VIEW --> DB
+    U -->|"5. View PDF"| PDFR["GET /api/patterns/:id/pdf"]
+    PDFR -->|"307 to a 60s signed URL"| ST
 ```
 
 Two things to notice:
@@ -149,7 +151,8 @@ lifetimes and different access rules.
 | Path | `{user.id}/{Date.now()}-{originalFileName}` |
 | Written by | `POST /api/patterns/upload` (phase 1), with the caller's own session |
 | Read by | the background worker, via the **service-role** client |
-| Bucket visibility | **public** |
+| Read by users | `GET /api/patterns/[id]/pdf`, which signs the path for 60s |
+| Bucket visibility | **private** |
 | `file_size_limit` | none |
 | `allowed_mime_types` | none (the route checks `file.type === 'application/pdf'` itself) |
 
@@ -158,20 +161,31 @@ with `${user.id}/` before queueing any work, because the worker runs with the
 service-role key and bypasses RLS — **that check is the only place ownership is
 enforced** on the background path.
 
-There are RLS policies on `storage.objects` scoping both insert and select to
-the caller's own folder:
+RLS policies on `storage.objects` scope both insert and select to the caller's
+own folder:
 
 ```sql
 (bucket_id = 'pattern-pdfs') AND (auth.uid()::text = (storage.foldername(name))[1])
 ```
 
-⚠️ **but the bucket is marked public**, and a public bucket serves
-`/storage/v1/object/public/pattern-pdfs/<path>` without authentication, which
-does not consult those policies. The public URL is what gets persisted (below),
-so in practice an uploaded pattern PDF is readable by anyone holding its URL.
-That deserves a deliberate decision — either switch the bucket to private and
-serve signed URLs, or accept it knowingly. It does not look like a decision
-anyone made on purpose.
+### Why reads go through a route
+
+The bucket used to be **public**, which meant those policies were decorative:
+a public bucket serves `/storage/v1/object/public/pattern-pdfs/<path>` without
+authentication and never consults RLS. The public URL was persisted to
+`patterns.pdf_url` and rendered as a plain link, so **the URL was the
+permission** — permanently valid, and readable by anyone who came to hold it.
+For files that are largely purchased, copyrighted patterns, that was the wrong
+default.
+
+Now the bucket is private and `GET /api/patterns/[id]/pdf` is the only way in.
+It checks the session, confirms the row belongs to the caller, and 307-redirects
+to a signed URL with a 60-second TTL. Signing runs on the caller's own Supabase
+client rather than the service-role one, so the owner-scoped policy above
+applies too — ownership is enforced twice on purpose.
+
+A leaked link is now bounded: the redirect target dies in a minute, and the
+route URL itself is useless to anyone not signed in as the owner.
 
 ### 2. The pattern — Postgres, seven tables
 
@@ -182,7 +196,7 @@ to have been dropped on the floor.
 
 | Table | Holds | Key columns |
 |---|---|---|
-| `patterns` | The pattern itself, one row | `name`, `designer`, `difficulty`, `pattern_type`, `selected_size`, `pdf_url`, `pdf_filename` |
+| `patterns` | The pattern itself, one row | `name`, `designer`, `difficulty`, `pattern_type`, `selected_size`, `storage_path`, `pdf_filename` |
 | `pattern_details` | One row of metadata | `gauge_stitches`, `gauge_rows`, `gauge_needle_size`, `needles`, `notions`, `finished_measurements`, `construction_method`, **`raw_extraction`** |
 | `pattern_materials` | Yarn requirements, one row per yarn | `yarn_weight`, `yarn_name`, `yarn_brand`, `yardage_needed`, `grams_needed`, `skeins_needed`, `color_name` |
 | `pattern_sections` | Sections, ordered | `section_name`, `section_order`, `section_type`, `content`, `applicable_sizes` |
@@ -190,10 +204,12 @@ to have been dropped on the floor.
 | `pattern_stitch_glossary` | Abbreviations | `abbreviation`, `name`, `description`, `stitch_count_change`, `category` |
 | `pattern_jobs` | Bookkeeping only — **no pattern data** | `status`, `storage_path`, `file_name`, `selected_size`, `pattern_id`, `error`, `warnings`, `progress` |
 
-`patterns.pdf_url` stores the **public** URL returned by `getPublicUrl()`, not
-the storage path. The pattern page links to it directly. The original storage
-path is recoverable from it only by string-splitting on the user id — which is
-exactly what the delete route does.
+`patterns.storage_path` holds the object's path inside the bucket — a location,
+not a credential. `patterns.pdf_url` is the legacy column that held the public
+URL; it is no longer written and no longer resolves, but it is kept (dropping a
+column is not additive) and `storagePathForPattern()` in
+`lib/patterns/storage-path.ts` still parses a path out of it so rows predating
+the column keep working.
 
 **Section content is polymorphic.** `pattern_sections.section_type` is the
 discriminator: `written_instructions` sections put their rows in
@@ -225,9 +241,9 @@ job instead of orphaning it.
 
 ### 4. What deletion actually removes
 
-`DELETE /api/patterns/[id]` reconstructs the storage path from `pdf_url` and
-removes the object from `pattern-pdfs`, then deletes the pattern row; the child
-tables follow by FK cascade. The `pattern_jobs` row is **not** deleted — its
+`DELETE /api/patterns/[id]` resolves the object via `storagePathForPattern()`,
+removes it from `pattern-pdfs`, then deletes the pattern row; the child tables
+follow by FK cascade. The `pattern_jobs` row is **not** deleted — its
 `pattern_id` FK is `ON DELETE SET NULL`, so job history survives with a null
 pattern reference.
 
@@ -293,6 +309,8 @@ If size detection returns an empty array — a one-size pattern, or a failed par
 | Invocation killed mid-run | Reported `failed` after 6 min. ⚠️ Not retried. |
 | Extraction exceeds 300s | Killed by `maxDuration`. ⚠️ Not retried. |
 | Poll fails 10× consecutively | Client gives up and tells the user to reload |
+| PDF requested by a non-owner | `404` from `/api/patterns/[id]/pdf` — not `403`, which would confirm the id exists |
+| Signed URL followed after 60s | Supabase rejects it; clicking "View PDF" again mints a fresh one |
 | ⚠️ File too large | **No limit is enforced** — not in the route, not on the bucket |
 
 ---
@@ -309,19 +327,19 @@ If size detection returns an empty array — a one-size pattern, or a failed par
 3. **`progress` is written but never read.** The backend records `{chars: N}`
    every 2s and the API returns it — no UI consumes it. A progress bar is
    plumbing away, not built.
-4. **PDFs are world-readable by URL.** The bucket is public; see
-   [The PDF — Supabase Storage](#1-the-pdf--supabase-storage).
-5. **No upload size limit.** Neither the route nor the bucket caps file size, so
+4. **No upload size limit.** Neither the route nor the bucket caps file size, so
    an oversized PDF fails late — as a base64 blob against the model's limits —
    rather than fast, as a `413`.
-6. **No OCR.** Image-only or scanned PDFs will extract poorly or not at all.
-7. **Orphaned PDFs.** A failed extraction leaves its PDF in the bucket forever;
+5. **No OCR.** Image-only or scanned PDFs will extract poorly or not at all.
+6. **Orphaned PDFs.** A failed extraction leaves its PDF in the bucket forever;
    nothing sweeps storage for objects with no surviving pattern row.
 
-Two limitations listed in earlier revisions of this doc have since been fixed: a
-React double-invoke could queue the same extraction twice (`selectSize` now
-reads state outside the updater and guards on status), and `runExtractionJob`
-now refuses to run a job that is not still `pending`.
+Limitations listed in earlier revisions of this doc that have since been fixed:
+a React double-invoke could queue the same extraction twice (`selectSize` now
+reads state outside the updater and guards on status); `runExtractionJob` now
+refuses to run a job that is not still `pending`; and uploaded PDFs were
+world-readable by URL (the bucket is private and reads are signed — see
+[Why reads go through a route](#why-reads-go-through-a-route)).
 
 ---
 
@@ -335,12 +353,19 @@ Requires `ANTHROPIC_API_KEY`, `NEXT_PUBLIC_SUPABASE_URL`,
 `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and — for the background worker —
 `SUPABASE_SERVICE_ROLE_KEY` in `.env.local`.
 
-`pattern_jobs` and the `pattern-pdfs` bucket must both exist. They already do in
-the hosted project, which is what `npm run dev` talks to today. Recreating them
-elsewhere is not currently possible from this repo alone: only
-`010_pattern_jobs.sql` is captured in `supabase/migrations/`, and the storage
-bucket was created through the dashboard and is described nowhere in source. See
-`supabase/README.md`.
+`pattern_jobs` and the `pattern-pdfs` bucket must both exist, the bucket must be
+**private**, and `patterns.storage_path` must exist. Recreating this elsewhere is
+not currently possible from this repo alone: only `010_pattern_jobs.sql` and
+`20260912185927_patterns_storage_path.sql` are captured in
+`supabase/migrations/`, and the storage bucket was created through the dashboard
+and is described nowhere in source. See `supabase/README.md`.
+
+⚠️ **Ordering matters when deploying this.** `persistPattern` writes
+`storage_path` unconditionally, so the migration has to land *before* the code —
+otherwise every extraction fails at the insert with "column does not exist". The
+bucket flip and the code should also ship together: flipping first breaks the
+existing "View PDF" links until the new route exists, and shipping first leaves
+the code signing URLs in a bucket that is still public.
 
 Useful log lines during an upload:
 

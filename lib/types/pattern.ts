@@ -7,7 +7,10 @@ export interface Pattern {
   designer?: string
   difficulty?: 'beginner' | 'easy' | 'intermediate' | 'advanced'
   pattern_type?: string
+  /** Legacy public URL. Dead since the bucket went private — use storage_path. */
   pdf_url?: string
+  /** Object path within the `pattern-pdfs` bucket. Signed on demand for reads. */
+  storage_path?: string
   pdf_filename?: string
   ravelry_id?: number
   ravelry_url?: string

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { storagePathForPattern } from '@/lib/patterns/storage-path'
 
 export async function GET(
   _request: NextRequest,
@@ -107,7 +108,7 @@ export async function DELETE(
     // Fetch the pattern to get the PDF path for storage cleanup
     const { data: pattern, error: fetchError } = await supabase
       .from('patterns')
-      .select('id, user_id, pdf_url')
+      .select('id, user_id, storage_path, pdf_url')
       .eq('id', id)
       .eq('user_id', user.id)
       .single()
@@ -117,8 +118,8 @@ export async function DELETE(
     }
 
     // Delete the PDF from storage if it exists
-    if (pattern.pdf_url) {
-      const storagePath = `${user.id}/${pattern.pdf_url.split(`${user.id}/`).pop()}`
+    const storagePath = storagePathForPattern(pattern)
+    if (storagePath) {
       await supabase.storage.from('pattern-pdfs').remove([storagePath])
     }
 
