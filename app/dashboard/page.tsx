@@ -2,10 +2,12 @@
 
 import Link from 'next/link'
 import { useEffect, useRef, useState } from 'react'
-import { ProjectCard } from '@/app/components/projects/ProjectCard'
+import { ActiveProjectCard } from '@/app/components/patterns/ActiveProjectCard'
 import { TodayStamp } from '@/app/components/ui/TodayStamp'
 import { useAuth } from '@/lib/auth/AuthContext'
+import { activeProjects } from '@/lib/patterns/progress'
 import { useProjects } from '@/lib/projects/ProjectsContext'
+import type { Pattern } from '@/lib/types/pattern'
 import {
   ArrowRightIcon,
   ClipboardIcon,
@@ -23,6 +25,9 @@ interface StashTotals {
 }
 
 const NO_STASH: StashTotals = { skeins: 0, yardage: 0 }
+
+// Stable identity, so the signed-out return value does not change every render.
+const NO_PATTERNS: Pattern[] = []
 
 /**
  * Skein and yardage totals for the stat strip.
@@ -87,15 +92,62 @@ function useStashTotals() {
   }
 }
 
+/**
+ * The patterns library, for the "what am I knitting" half of this page.
+ *
+ * Same shape as `useStashTotals` above: `loading` is derived so the effect
+ * never sets state synchronously on the signed-out path.
+ */
+function usePatterns() {
+  const { user, loading: authLoading } = useAuth()
+  const [patterns, setPatterns] = useState<Pattern[]>([])
+  const [loadedFor, setLoadedFor] = useState<string | null>(null)
+
+  const userId = user?.id ?? null
+  const requestId = useRef(0)
+
+  useEffect(() => {
+    if (authLoading || !userId || loadedFor === userId) return
+
+    const current = ++requestId.current
+
+    fetch('/api/patterns')
+      .then((response) => {
+        if (!response.ok) throw new Error(`Failed to fetch patterns: ${response.status}`)
+        return response.json()
+      })
+      .then((data) => {
+        if (current !== requestId.current) return
+        setPatterns(data.patterns ?? [])
+      })
+      .catch((err) => {
+        console.error('Error fetching patterns:', err)
+      })
+      .finally(() => {
+        if (current === requestId.current) setLoadedFor(userId)
+      })
+  }, [authLoading, userId, loadedFor])
+
+  return {
+    patterns: userId ? patterns : NO_PATTERNS,
+    loading: authLoading || (userId !== null && loadedFor !== userId),
+  }
+}
+
 export default function Home() {
   const { projects, loading: projectsLoading } = useProjects()
   const { totals: stash, loading: stashLoading } = useStashTotals()
+  const { patterns, loading: patternsLoading } = usePatterns()
+
+  // Two different questions, so two different sources. What you are knitting
+  // right now is a pattern in step-by-step mode; the queue is the `projects`
+  // table. Counting the queue's rows as "in progress" is what used to make
+  // this page contradict the patterns library.
+  const currentProjects = activeProjects(patterns)
+  const inProgressProjects = currentProjects.length
 
   const queuedProjects = projects.filter((p) => p.status === 'queued').length
-  const inProgressProjects = projects.filter((p) => p.status === 'in-progress').length
-
   const upNext = projects.find((p) => p.status === 'queued')
-  const currentProjects = projects.filter((p) => p.status === 'in-progress')
 
   // An em dash rather than a zero while the numbers are still in flight —
   // "0 skeins" reads as a fact, and it would be the wrong one.
@@ -104,7 +156,7 @@ export default function Home() {
 
   const stats = [
     { value: projectStat(queuedProjects), label: 'Queued projects', icon: ClipboardIcon, tint: 'bg-terracotta-soft text-terracotta' },
-    { value: projectStat(inProgressProjects), label: 'In progress', icon: SpokesIcon, tint: 'bg-parchment-deep text-ink-muted' },
+    { value: patternsLoading ? '—' : inProgressProjects, label: 'In progress', icon: SpokesIcon, tint: 'bg-parchment-deep text-ink-muted' },
     { value: stashStat(stash.skeins), label: 'Skeins in stash', icon: PackageIcon, tint: 'bg-parchment-deep text-ink-muted' },
     { value: stashStat(stash.yardage), label: 'Total yards', icon: RulerIcon, tint: 'bg-sand text-ink-muted' },
   ]
@@ -155,17 +207,17 @@ export default function Home() {
               <h2 className="font-display text-4xl tracking-tight text-ink">Current Projects</h2>
             </div>
             <Link
-              href="/queue"
+              href="/patterns"
               className="group inline-flex items-center gap-2 text-sm font-medium text-terracotta"
             >
-              View all projects
+              View all patterns
               <ArrowRightIcon className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </Link>
           </div>
 
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            {currentProjects.map((project) => (
-              <ProjectCard key={project.id} project={project} />
+            {currentProjects.map((pattern) => (
+              <ActiveProjectCard key={pattern.id} pattern={pattern} />
             ))}
           </div>
         </section>

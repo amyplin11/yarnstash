@@ -93,6 +93,17 @@ See `docs/pattern-upload-flow.md` for the end-to-end flow, diagrams, failure mod
 
 **Section content polymorphism:** Sections use a `section_type` discriminator. `written_instructions` sections store rows in the `pattern_instructions` table; other types (`chart`, `stitch_pattern`, `schematic`, `notes`) store data as JSONB in the `content` column of `pattern_sections`. The TypeScript types mirror this with a discriminated union on `section_type`.
 
+### What counts as a project "in progress"
+
+Two tables can each claim to describe a project, and they are not the same thing:
+
+- **A pattern you are knitting** — a `patterns` row whose `user_pattern_progress` has `current_instruction_id` set and no `completed_at`. This is what "Start project" on a pattern page creates, and it drives the dashboard's *In progress* stat and the *Current Projects* section on both the dashboard and `/patterns`.
+- **A row in `projects`** — the queue. Drives the dashboard's *Queued projects* stat, the sidebar badge and `/queue`. Nothing writes to it yet; there is no create-project UI.
+
+The rule lives in one place, `lib/patterns/progress.ts` (`isActiveProject` / `activeProjects`), because the dashboard and the patterns library once defined it differently and visibly disagreed. A progress row on its own is not enough — one is written as soon as a size is picked, so a pattern that was only opened and sized is not a project yet. Both pages render active projects with the shared `ActiveProjectCard`.
+
+`user_pattern_progress` has a `project_id` column, so a pattern's progress can eventually be tied to a real `projects` row; nothing sets it today.
+
 ### Type system
 
 Types are in `lib/types/` and re-exported from `lib/types/index.ts`:
