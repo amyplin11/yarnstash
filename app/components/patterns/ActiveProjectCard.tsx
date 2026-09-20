@@ -12,7 +12,9 @@ export function ActiveProjectCard({ pattern }: { pattern: Pattern }) {
   const progress = pattern.progress
 
   return (
-    <Link href={`/patterns/${pattern.id}`}>
+    // ?resume=1 — the card promises "Resume →", so the pattern page drops
+    // straight into step-by-step rather than landing on the overview.
+    <Link href={`/patterns/${pattern.id}?resume=1`}>
       <Card className="h-full border-transparent bg-terracotta p-6 text-parchment transition-colors hover:bg-terracotta-deep">
         <div className="flex items-start justify-between gap-3">
           <h3 className="font-display text-2xl tracking-tight">{pattern.name}</h3>
