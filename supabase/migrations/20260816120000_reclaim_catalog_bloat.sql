@@ -1,13 +1,28 @@
 -- Reclaim database space: the Ravelry catalog import, not user data, is what
 -- pushed this project over its storage quota.
 --
--- Measured on 2026-08-16 against the hosted project (98,091 yarns):
+-- APPLIED to the hosted project on 2026-08-16, via the Management API
+-- (`POST /v1/projects/<ref>/database/query`) rather than `db push` — see the
+-- note at the foot of this file. Measured on-disk sizes, before → after:
 --
---   table         rows      logical bytes   note
---   yarns         98,091    ~494 MB         raw_data alone is ~444 MB (90%)
---   yarn_photos   275,395   ~159 MB         six URL variants per photo row
---   yarn_fibers   177,644   ~9 MB
---   all user data ~165      <1 MB           patterns, stash, projects, jobs
+--   object                     before    after    note
+--   yarns (total)              690 MB    76 MB
+--     ├─ idx_yarns_raw_data    420 MB    gone     GIN index, 0 scans, ever
+--     ├─ toast (raw_data)      140 MB    712 kB
+--     ├─ heap                  105 MB    55 MB    50 MB of it upsert bloat
+--     └─ other indexes          25 MB    20 MB
+--   yarn_photos                174 MB    174 MB   untouched, not bloated
+--   yarn_fibers                 20 MB     20 MB   untouched, not bloated
+--   all user data              <1 MB     <1 MB    patterns, stash, jobs
+--
+--   database total             896 MB    282 MB   free-tier limit is 500 MB
+--
+-- The surprise was the index, not the column. `idx_yarns_raw_data` was a GIN
+-- index over the entire Ravelry payload — 420 MB, the single largest object in
+-- the database, and `pg_stat_user_indexes.idx_scan` showed it had never been
+-- scanned once. Dropping the column drops the index with it, and index files
+-- are released immediately, so that 420 MB came back without waiting on the
+-- table rewrite.
 --
 -- Nothing in the app reads `yarns.raw_data`. It is written once by
 -- scripts/import-yarns.ts and never selected again: the list route explicitly
@@ -15,14 +30,21 @@
 -- writes it out as '{}' with the comment "never read by the app". It is also
 -- fully re-derivable by re-running the import against Ravelry, so dropping it
 -- loses nothing that cannot be rebuilt.
+--
+-- Verified after applying: all 98,091 yarns still present; full-text search,
+-- autocomplete prefix search, weight/brand filters, rating sort and the
+-- yarn_fibers join all return correct results; stash and patterns untouched.
 
 -- ─── Part A: drop the unused raw Ravelry payload ─────────────────────────────
 
 alter table yarns drop column if exists raw_data;
 
 -- DROP COLUMN is metadata-only in Postgres — it marks the attribute dead but
--- does not rewrite the heap or its TOAST table, so disk usage will not move
--- until the table is rewritten. Run this separately, outside a transaction:
+-- does not rewrite the heap or its TOAST table, so the 140 MB of TOAST and the
+-- 50 MB of heap bloat do not come back until the table is rewritten. Run this
+-- separately, outside a transaction (which is also why it cannot live in this
+-- migration — Supabase runs migrations in a transaction, and VACUUM FULL
+-- cannot):
 --
 --   vacuum (full, analyze) yarns;
 --
@@ -32,12 +54,19 @@ alter table yarns drop column if exists raw_data;
 -- is hard against its quota and the rewrite cannot allocate that headroom, do
 -- Part B first — freeing yarn_photos gives VACUUM FULL the room to work.
 
--- ─── Part B (optional): trim the unused photo variants ───────────────────────
+-- ─── Part B (optional, NOT applied): trim the unused photo variants ──────────
 --
--- yarn_photos holds 275,395 rows and is the second-largest object here. No
--- component reads it: `yarn_photos` appears in lib/types/yarn.ts as a type
--- declaration and in two API selects, and nowhere else. Every image the UI
--- actually renders comes from `yarns.first_photo_url`.
+-- Part A alone brought the database to 282 MB, well under the 500 MB limit, so
+-- this was deliberately left undone. It is here for when the catalog grows
+-- again — yarn_photos is now the largest object in the database at 174 MB of
+-- the 282 MB total.
+--
+-- yarn_photos holds 275,395 rows. No component reads it: `yarn_photos` appears
+-- in lib/types/yarn.ts as a type declaration and in two API selects, and
+-- nowhere else. Every image the UI actually renders comes from
+-- `yarns.first_photo_url`. It is not bloated — 163 MB of heap for 275k rows is
+-- close to the logical size of its contents, so a VACUUM FULL would return
+-- almost nothing. Shrinking it means removing rows or columns.
 --
 -- This block is left commented out because it is a product decision, not a
 -- correctness one: it forecloses building a photo gallery from stored data
@@ -66,7 +95,36 @@ alter table yarns drop column if exists raw_data;
 --
 -- The importer upserts yarns (ON CONFLICT DO UPDATE) and does a
 -- delete-then-insert for photos on every pass. Both leave dead tuples, and the
--- script supports resuming, so the physical size on disk is larger than the
--- logical figures above by however many times a row has been rewritten.
--- Autovacuum makes that space reusable but never returns it to the OS, which
--- is why the VACUUM FULL steps above matter as much as the DROP COLUMN.
+-- script supports resuming, so physical size drifts above logical size by
+-- however many times a row has been rewritten. That accounted for ~50 MB of
+-- the yarns heap. Autovacuum makes such space reusable but never returns it to
+-- the OS, which is why the VACUUM FULL step matters as much as the DROP.
+--
+-- Worth knowing: `pg_stat_user_tables` showed yarn_photos and yarn_fibers with
+-- no recorded vacuum or analyze at all, and zeroed live/dead counts — nothing
+-- has ever collected statistics on them. If the planner starts making poor
+-- choices on those tables, `analyze yarn_photos;` is the first thing to try.
+
+-- ─── How this was applied ────────────────────────────────────────────────────
+--
+-- Not with `npm run db:push`, which does not work here and is the wrong tool
+-- regardless:
+--
+--   * The project is not linked (no supabase/.temp), and the hosted database
+--     predates migration tracking, so push would try to replay
+--     010_pattern_jobs.sql. Its `create policy pattern_jobs_select_own` has no
+--     IF NOT EXISTS guard — Postgres offers none for CREATE POLICY — so the
+--     replay errors with "policy already exists".
+--   * VACUUM FULL cannot run inside a transaction, and migrations do, so the
+--     step that actually reclaims disk can never be part of one.
+--
+-- Instead both statements went through the Management API, which executes
+-- arbitrary SQL against the hosted database:
+--
+--   POST https://api.supabase.com/v1/projects/<project-ref>/database/query
+--   Authorization: Bearer <sbp_… personal access token>
+--   {"query": "..."}
+--
+-- Because it was applied out of band, this file is not recorded in the remote
+-- migration history. It is written to be safely re-runnable if it ever is:
+-- `drop column if exists` is a no-op once the column is gone.
