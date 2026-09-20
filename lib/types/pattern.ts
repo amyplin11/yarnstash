@@ -135,6 +135,22 @@ export interface UserPatternProgress {
   completed_at?: Date
 }
 
+/**
+ * A named tally a knitter keeps while working a pattern — rows, repeats,
+ * decreases. Separate from UserPatternProgress.row_counter, which is a single
+ * fixed slot; a pattern can have as many of these as the knitter adds.
+ */
+export interface PatternCounter {
+  id: string
+  user_id: string
+  pattern_id: string
+  name: string
+  value: number
+  position: number
+  created_at?: string
+  updated_at?: string
+}
+
 export interface PatternNote {
   id: string
   user_id: string
