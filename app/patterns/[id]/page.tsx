@@ -749,7 +749,9 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
               <h2 className="text-lg font-semibold text-foreground">Pattern Instructions</h2>
               {flatSteps.length > 0 && (
                 <Button variant="primary" onClick={enterFollowMode}>
-                  {data.wip?.current_instruction_id ? 'Continue' : 'Step by Step'}
+                  {/* Starting step-by-step is what makes this a project, on the
+                      dashboard and under Current Projects — so say so. */}
+                  {data.wip?.current_instruction_id ? 'Continue project' : 'Start project'}
                 </Button>
               )}
             </div>

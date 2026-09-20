@@ -8,6 +8,8 @@ import { Card } from '@/app/components/ui/Card'
 import { Button } from '@/app/components/ui/Button'
 import { Badge } from '@/app/components/ui/Badge'
 import { Pattern } from '@/lib/types/pattern'
+import { activeProjects } from '@/lib/patterns/progress'
+import { ActiveProjectCard } from '@/app/components/patterns/ActiveProjectCard'
 
 export default function PatternsPage() {
   const { user, loading: authLoading } = useAuth()
@@ -68,14 +70,8 @@ export default function PatternsPage() {
     }
   }
 
-  // A pattern counts as a current project while it has progress that isn't finished.
-  const inProgress = patterns
-    .filter((p) => p.progress && !p.progress.completed_at)
-    .sort(
-      (a, b) =>
-        new Date(b.progress?.last_worked_at ?? 0).getTime() -
-        new Date(a.progress?.last_worked_at ?? 0).getTime()
-    )
+  // Shared with the dashboard so both pages agree on what is on the needles.
+  const inProgress = activeProjects(patterns)
   const inProgressIds = new Set(inProgress.map((p) => p.id))
   // The rest of the library, so nothing is listed twice.
   const restOfLibrary = patterns.filter((p) => !inProgressIds.has(p.id))
@@ -136,63 +132,14 @@ export default function PatternsPage() {
             {inProgress.length === 0 ? (
               <Card className="p-8 text-center">
                 <p className="text-foreground/70">
-                  Nothing on the needles yet. Open a pattern and start tracking rows — it will
+                  Nothing on the needles yet. Open a pattern and hit Start project — it will
                   show up here.
                 </p>
               </Card>
             ) : (
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {inProgress.map((pattern) => (
-                  <Link key={pattern.id} href={`/patterns/${pattern.id}?resume=1`}>
-                    <Card className="h-full border-transparent bg-terracotta p-6 text-parchment transition-colors hover:bg-terracotta-deep">
-                      <div className="flex items-start justify-between gap-3">
-                        <h3 className="font-display text-2xl tracking-tight">{pattern.name}</h3>
-                        <span className="eyebrow shrink-0 rounded-full bg-parchment/15 px-3 py-1">
-                          In progress
-                        </span>
-                      </div>
-
-                      {pattern.designer && (
-                        <p className="mt-2 text-sm text-parchment/75">by {pattern.designer}</p>
-                      )}
-
-                      <dl className="mt-6 space-y-1 text-sm text-parchment/75">
-                        {pattern.progress?.selected_size && (
-                          <div className="flex gap-2">
-                            <dt>Size</dt>
-                            <dd className="font-medium text-parchment">
-                              {pattern.progress.selected_size}
-                            </dd>
-                          </div>
-                        )}
-                        {pattern.progress?.row_counter !== undefined && (
-                          <div className="flex gap-2">
-                            <dt>Row</dt>
-                            <dd className="font-medium text-parchment">
-                              {pattern.progress.row_counter}
-                            </dd>
-                          </div>
-                        )}
-                        {pattern.progress?.completed_instructions?.length ? (
-                          <div className="flex gap-2">
-                            <dt>Steps done</dt>
-                            <dd className="font-medium text-parchment">
-                              {pattern.progress.completed_instructions.length}
-                            </dd>
-                          </div>
-                        ) : null}
-                      </dl>
-
-                      <div className="mt-6 flex items-center justify-between border-t border-parchment/20 pt-4 text-sm">
-                        <span className="text-parchment/70">
-                          {pattern.progress?.last_worked_at
-                            ? `Last worked ${new Date(pattern.progress.last_worked_at).toLocaleDateString()}`
-                            : 'Just started'}
-                        </span>
-                        <span className="font-medium">Resume →</span>
-                      </div>
-                    </Card>
-                  </Link>
+                  <ActiveProjectCard key={pattern.id} pattern={pattern} />
                 ))}
               </div>
             )}

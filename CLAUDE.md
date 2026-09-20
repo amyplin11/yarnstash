@@ -66,6 +66,10 @@ Migrations are in `supabase/migrations/`, managed by the Supabase CLI and applie
 The brand list behind those last two routes is derived, not stored. There is no `yarn_companies` table, PostgREST has no DISTINCT, and aggregate functions are disabled on this project, so `lib/yarns/brand-index.ts` sweeps the catalog once and caches the ~13k distinct brands in memory for 6 hours. Autocomplete only uses the index once it is warm, so a keystroke never waits on that sweep. Two performance constraints drive the rest: brand filtering uses exact matching because `ILIKE` with a leading wildcard forces a sequential scan (~2.2s vs ~0.3s), and suggestions go through `search_vector` with a `to_tsquery` prefix (`malab:*`) because `ILIKE` name search measured ~7.5s.
 - `/api/stash` — CRUD for user's personal yarn stash (auth required)
 - `/api/stash/[id]` — Single stash yarn
+- `/api/projects` — List (GET) and create (POST) the user's projects; each row carries its `project_yarns` via a PostgREST embed
+- `/api/projects/[id]` — Single project: GET, PATCH (a `yarns` array replaces the project's yarn list), DELETE
+
+The projects routes speak the database's snake_case shape, like `/api/stash`; `projectRowToProject()` converts to the camelCase `Project` the UI uses. Body → column mapping is shared between the two route files by `lib/projects/columns.ts`, which lives outside `app/api/` because a Next route file may only export route handlers.
 - `/api/patterns` — User's patterns
 - `/api/patterns/upload` — PDF upload → store in Supabase Storage → detect available sizes (phase 1)
 - `/api/patterns/upload/extract` — Queue a full extraction for a selected size; returns `202 { jobId }` (phase 2)
@@ -73,7 +77,11 @@ The brand list behind those last two routes is derived, not stored. There is no 
 
 ### Context providers
 
-Layout wraps the app in a provider hierarchy: `AuthProvider` → `UploadProvider` → Navbar + children + `UploadStatusBar`. The upload flow uses `useUpload()` hook (from `lib/upload/UploadContext.tsx`) to manage file validation, the two upload phases, and status transitions (`idle` → `uploading` → `selecting_size` → `extracting` → `success`/`error`). The `UploadStatusBar` component renders fixed bottom-right feedback based on this state.
+Layout wraps the app in a provider hierarchy: `AuthProvider` → `ProjectsProvider` → `UploadProvider` → Navbar + children + `UploadStatusBar`.
+
+`ProjectsProvider` (`lib/projects/ProjectsContext.tsx`) holds one shared read of the user's projects behind a `useProjects()` hook. The dashboard, the queue page and the sidebar's queued-count badge all want the same list, and the sidebar is mounted on every route, so fetching once here keeps it to a single request per session. It keys its effect off `user.id` rather than the `user` object, which Supabase replaces on every token refresh, and stays signed-out-quiet: no user means no request.
+
+The upload flow uses `useUpload()` hook (from `lib/upload/UploadContext.tsx`) to manage file validation, the two upload phases, and status transitions (`idle` → `uploading` → `selecting_size` → `extracting` → `success`/`error`). The `UploadStatusBar` component renders fixed bottom-right feedback based on this state.
 
 While a job is running, its id is persisted to `localStorage`, so reloading the page rejoins the in-flight extraction rather than orphaning it.
 
@@ -84,6 +92,17 @@ See `docs/pattern-upload-flow.md` for the end-to-end flow, diagrams, failure mod
 `app/api/patterns/upload/route.ts` sends uploaded PDFs to the Anthropic API (Claude Sonnet 4) for structured extraction. The response is parsed as `ExtractedPatternData` and decomposed across multiple tables (pattern_details, pattern_materials, pattern_sections, pattern_instructions, pattern_stitch_glossary).
 
 **Section content polymorphism:** Sections use a `section_type` discriminator. `written_instructions` sections store rows in the `pattern_instructions` table; other types (`chart`, `stitch_pattern`, `schematic`, `notes`) store data as JSONB in the `content` column of `pattern_sections`. The TypeScript types mirror this with a discriminated union on `section_type`.
+
+### What counts as a project "in progress"
+
+Two tables can each claim to describe a project, and they are not the same thing:
+
+- **A pattern you are knitting** — a `patterns` row whose `user_pattern_progress` has `current_instruction_id` set and no `completed_at`. This is what "Start project" on a pattern page creates, and it drives the dashboard's *In progress* stat and the *Current Projects* section on both the dashboard and `/patterns`.
+- **A row in `projects`** — the queue. Drives the dashboard's *Queued projects* stat, the sidebar badge and `/queue`. Nothing writes to it yet; there is no create-project UI.
+
+The rule lives in one place, `lib/patterns/progress.ts` (`isActiveProject` / `activeProjects`), because the dashboard and the patterns library once defined it differently and visibly disagreed. A progress row on its own is not enough — one is written as soon as a size is picked, so a pattern that was only opened and sized is not a project yet. Both pages render active projects with the shared `ActiveProjectCard`.
+
+`user_pattern_progress` has a `project_id` column, so a pattern's progress can eventually be tied to a real `projects` row; nothing sets it today.
 
 ### Type system
 
