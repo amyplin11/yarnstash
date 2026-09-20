@@ -143,7 +143,7 @@ export default function PatternsPage() {
             ) : (
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                 {inProgress.map((pattern) => (
-                  <Link key={pattern.id} href={`/patterns/${pattern.id}`}>
+                  <Link key={pattern.id} href={`/patterns/${pattern.id}?resume=1`}>
                     <Card className="h-full border-transparent bg-terracotta p-6 text-parchment transition-colors hover:bg-terracotta-deep">
                       <div className="flex items-start justify-between gap-3">
                         <h3 className="font-display text-2xl tracking-tight">{pattern.name}</h3>

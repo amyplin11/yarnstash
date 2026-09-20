@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef, use } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useCallback, useRef, use, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { Card } from '@/app/components/ui/Card'
@@ -97,10 +97,13 @@ const difficultyVariant: Record<string, 'success' | 'info' | 'warning' | 'frogge
   advanced: 'frogged',
 }
 
-export default function PatternDetailPage({ params }: { params: Promise<{ id: string }> }) {
+function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  // ?resume=1 — set by the "Current Projects" cards, which promise "Resume →".
+  const wantsResume = searchParams.get('resume') === '1'
   const [data, setData] = useState<PatternData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -112,6 +115,7 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
   const [selectedSize, setSelectedSize] = useState<string | null>(null)
   const [showSizePicker, setShowSizePicker] = useState(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const autoResumedRef = useRef(false)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -230,6 +234,16 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
     }
     setFollowMode(true)
   }, [data, flatSteps, selectedSize])
+
+  // Arriving from a "Current Projects" card (?resume=1) drops straight into
+  // step-by-step instead of the overview. Fires once, so tapping "Overview"
+  // from inside follow mode doesn't bounce you right back in.
+  useEffect(() => {
+    if (!wantsResume || autoResumedRef.current) return
+    if (loading || !data || flatSteps.length === 0) return
+    autoResumedRef.current = true
+    enterFollowMode()
+  }, [wantsResume, loading, data, flatSteps, enterFollowMode])
 
   // Get the instruction text for the user's selected size
   const textForSize = (instr: Instruction): string => {
@@ -935,5 +949,15 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
         )}
       </main>
     </div>
+  )
+}
+
+// useSearchParams() opts the subtree into client-side rendering, which Next
+// requires a Suspense boundary for. Without it the build fails on this route.
+export default function PatternDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  return (
+    <Suspense fallback={null}>
+      <PatternDetailPageInner params={params} />
+    </Suspense>
   )
 }
