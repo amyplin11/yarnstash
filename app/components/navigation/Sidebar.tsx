@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { useAuth } from '@/lib/auth/AuthContext'
-import { mockProjects } from '@/lib/data/mockProjects'
+import { useProjects } from '@/lib/projects/ProjectsContext'
 import {
   ChevronsLeftIcon,
   ChevronsRightIcon,
@@ -37,7 +37,8 @@ function isActivePath(pathname: string, path: string, exact?: boolean) {
 
 function NavList({ collapsed = false, onNavigate }: { collapsed?: boolean; onNavigate?: () => void }) {
   const pathname = usePathname()
-  const queuedCount = mockProjects.filter((p) => p.status === 'queued').length
+  const { projects } = useProjects()
+  const queuedCount = projects.filter((p) => p.status === 'queued').length
 
   return (
     <nav className="flex flex-col gap-1">

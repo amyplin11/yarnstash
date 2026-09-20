@@ -3,6 +3,7 @@ import { Figtree, Playfair_Display } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "./components/navigation/AppShell";
 import { AuthProvider } from "@/lib/auth/AuthContext";
+import { ProjectsProvider } from "@/lib/projects/ProjectsContext";
 import { UploadProvider } from "@/lib/upload/UploadContext";
 import { UploadStatusBar } from "./components/ui/UploadStatusBar";
 import { FeedbackButton } from "./components/feedback/FeedbackButton";
@@ -34,11 +35,13 @@ export default function RootLayout({
         className={`${figtree.variable} ${playfair.variable} bg-parchment text-ink antialiased`}
       >
         <AuthProvider>
-          <UploadProvider>
-            <AppShell>{children}</AppShell>
-            <UploadStatusBar />
-            <FeedbackButton />
-          </UploadProvider>
+          <ProjectsProvider>
+            <UploadProvider>
+              <AppShell>{children}</AppShell>
+              <UploadStatusBar />
+              <FeedbackButton />
+            </UploadProvider>
+          </ProjectsProvider>
         </AuthProvider>
       </body>
     </html>

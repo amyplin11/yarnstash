@@ -1,18 +1,20 @@
 'use client'
 
 import { useState } from 'react'
-import { mockProjects } from '@/lib/data/mockProjects'
+import { useProjects } from '@/lib/projects/ProjectsContext'
 import { ProjectGrid } from '@/app/components/projects/ProjectGrid'
 import { Button } from '@/app/components/ui/Button'
+import { Card } from '@/app/components/ui/Card'
 
 type StatusFilter = 'all' | 'queued' | 'in-progress' | 'completed' | 'frogged'
 
 export default function QueuePage() {
+  const { projects, loading, error } = useProjects()
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
 
   const filteredProjects = statusFilter === 'all'
-    ? mockProjects
-    : mockProjects.filter(p => p.status === statusFilter)
+    ? projects
+    : projects.filter(p => p.status === statusFilter)
 
   const filterButtons: { label: string; value: StatusFilter }[] = [
     { label: 'All', value: 'all' },
@@ -35,6 +37,18 @@ export default function QueuePage() {
           </p>
         </div>
 
+        {/* Error Message */}
+        {error && (
+          <Card className="p-4 mb-8 bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800">
+            <div className="flex items-start gap-3">
+              <span className="text-2xl">⚠️</span>
+              <div>
+                <p className="text-sm text-foreground/90">{error}</p>
+              </div>
+            </div>
+          </Card>
+        )}
+
         {/* Filter Buttons */}
         <div className="flex flex-wrap gap-2 mb-8">
           {filterButtons.map((button) => (
@@ -50,10 +64,21 @@ export default function QueuePage() {
         </div>
 
         {/* Projects Grid */}
-        <ProjectGrid
-          projects={filteredProjects}
-          emptyMessage="No projects found. Start by exploring patterns!"
-        />
+        {loading ? (
+          <div className="flex flex-col items-center justify-center py-16">
+            <div className="text-6xl mb-4 animate-bounce">🧶</div>
+            <p className="text-foreground/70">Loading your projects...</p>
+          </div>
+        ) : (
+          <ProjectGrid
+            projects={filteredProjects}
+            emptyMessage={
+              projects.length === 0
+                ? 'No projects yet.'
+                : 'No projects match this filter.'
+            }
+          />
+        )}
       </main>
     </div>
   )
