@@ -1,8 +1,11 @@
+'use client'
+
 import Link from 'next/link'
+import { useEffect, useRef, useState } from 'react'
 import { ProjectCard } from '@/app/components/projects/ProjectCard'
 import { TodayStamp } from '@/app/components/ui/TodayStamp'
-import { mockProjects } from '@/lib/data/mockProjects'
-import { mockStashYarns } from '@/lib/data/mockYarns'
+import { useAuth } from '@/lib/auth/AuthContext'
+import { useProjects } from '@/lib/projects/ProjectsContext'
 import {
   ArrowRightIcon,
   ClipboardIcon,
@@ -14,23 +17,96 @@ import {
   SpokesIcon,
 } from '@/app/components/ui/icons'
 
-export default function Home() {
-  const queuedProjects = mockProjects.filter((p) => p.status === 'queued').length
-  const inProgressProjects = mockProjects.filter((p) => p.status === 'in-progress').length
-  const totalStashSkeins = mockStashYarns.reduce((sum, yarn) => sum + yarn.skeins, 0)
-  const totalYardage = mockStashYarns.reduce(
-    (sum, yarn) => sum + yarn.yarn.yardage * yarn.skeins,
-    0
-  )
+interface StashTotals {
+  skeins: number
+  yardage: number
+}
 
-  const upNext = mockProjects.find((p) => p.status === 'queued')
-  const currentProjects = mockProjects.filter((p) => p.status === 'in-progress')
+const NO_STASH: StashTotals = { skeins: 0, yardage: 0 }
+
+/**
+ * Skein and yardage totals for the stat strip.
+ *
+ * Only this page needs the aggregate, and `/api/stash` returns few enough rows
+ * to add up client-side — PostgREST has aggregates disabled on this project, so
+ * there is no cheaper server-side sum to ask for.
+ *
+ * `loading` is derived rather than stored so the effect never has to set state
+ * synchronously on the signed-out path.
+ */
+function useStashTotals() {
+  const { user, loading: authLoading } = useAuth()
+  const [totals, setTotals] = useState<StashTotals>(NO_STASH)
+  /** Whose totals `totals` currently holds; lags `userId` until a fetch settles. */
+  const [loadedFor, setLoadedFor] = useState<string | null>(null)
+
+  const userId = user?.id ?? null
+  const requestId = useRef(0)
+
+  useEffect(() => {
+    if (authLoading || !userId || loadedFor === userId) return
+
+    const current = ++requestId.current
+
+    fetch('/api/stash')
+      .then((response) => {
+        if (!response.ok) throw new Error(`Failed to fetch stash: ${response.status}`)
+        return response.json()
+      })
+      .then((data) => {
+        if (current !== requestId.current) return
+        const rows: { skeins?: number; yardage?: number }[] = data.yarns ?? []
+        setTotals(
+          rows.reduce<StashTotals>(
+            (sum, row) => {
+              const skeins = Number(row.skeins) || 0
+              return {
+                skeins: sum.skeins + skeins,
+                yardage: sum.yardage + (Number(row.yardage) || 0) * skeins,
+              }
+            },
+            { skeins: 0, yardage: 0 }
+          )
+        )
+      })
+      .catch((err) => {
+        // The stat strip is ambient detail — log it and leave the zeros rather
+        // than putting an error card above the whole dashboard.
+        console.error('Error fetching stash totals:', err)
+      })
+      .finally(() => {
+        // Marked either way, so a failed request settles into zeros instead of
+        // leaving the strip stuck on its placeholder.
+        if (current === requestId.current) setLoadedFor(userId)
+      })
+  }, [authLoading, userId, loadedFor])
+
+  return {
+    totals: userId ? totals : NO_STASH,
+    loading: authLoading || (userId !== null && loadedFor !== userId),
+  }
+}
+
+export default function Home() {
+  const { projects, loading: projectsLoading } = useProjects()
+  const { totals: stash, loading: stashLoading } = useStashTotals()
+
+  const queuedProjects = projects.filter((p) => p.status === 'queued').length
+  const inProgressProjects = projects.filter((p) => p.status === 'in-progress').length
+
+  const upNext = projects.find((p) => p.status === 'queued')
+  const currentProjects = projects.filter((p) => p.status === 'in-progress')
+
+  // An em dash rather than a zero while the numbers are still in flight —
+  // "0 skeins" reads as a fact, and it would be the wrong one.
+  const projectStat = (value: number) => (projectsLoading ? '—' : value)
+  const stashStat = (value: number) => (stashLoading ? '—' : value.toLocaleString())
 
   const stats = [
-    { value: queuedProjects, label: 'Queued projects', icon: ClipboardIcon, tint: 'bg-terracotta-soft text-terracotta' },
-    { value: inProgressProjects, label: 'In progress', icon: SpokesIcon, tint: 'bg-parchment-deep text-ink-muted' },
-    { value: totalStashSkeins, label: 'Skeins in stash', icon: PackageIcon, tint: 'bg-parchment-deep text-ink-muted' },
-    { value: totalYardage.toLocaleString(), label: 'Total yards', icon: RulerIcon, tint: 'bg-sand text-ink-muted' },
+    { value: projectStat(queuedProjects), label: 'Queued projects', icon: ClipboardIcon, tint: 'bg-terracotta-soft text-terracotta' },
+    { value: projectStat(inProgressProjects), label: 'In progress', icon: SpokesIcon, tint: 'bg-parchment-deep text-ink-muted' },
+    { value: stashStat(stash.skeins), label: 'Skeins in stash', icon: PackageIcon, tint: 'bg-parchment-deep text-ink-muted' },
+    { value: stashStat(stash.yardage), label: 'Total yards', icon: RulerIcon, tint: 'bg-sand text-ink-muted' },
   ]
 
   return (
@@ -191,7 +267,9 @@ export default function Home() {
           <div>
             <h2 className="font-display text-3xl tracking-tight text-ink">Yarn Stash</h2>
             <p className="mt-2 text-ink-muted">
-              {totalStashSkeins} skeins waiting on a project.
+              {stashLoading
+                ? 'Everything you own, counted and catalogued.'
+                : `${stash.skeins.toLocaleString()} ${stash.skeins === 1 ? 'skein' : 'skeins'} waiting on a project.`}
             </p>
           </div>
           <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-sand-soft text-ink-muted transition-transform group-hover:scale-105">

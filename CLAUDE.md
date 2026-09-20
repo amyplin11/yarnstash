@@ -66,6 +66,10 @@ Migrations are in `supabase/migrations/`, managed by the Supabase CLI and applie
 The brand list behind those last two routes is derived, not stored. There is no `yarn_companies` table, PostgREST has no DISTINCT, and aggregate functions are disabled on this project, so `lib/yarns/brand-index.ts` sweeps the catalog once and caches the ~13k distinct brands in memory for 6 hours. Autocomplete only uses the index once it is warm, so a keystroke never waits on that sweep. Two performance constraints drive the rest: brand filtering uses exact matching because `ILIKE` with a leading wildcard forces a sequential scan (~2.2s vs ~0.3s), and suggestions go through `search_vector` with a `to_tsquery` prefix (`malab:*`) because `ILIKE` name search measured ~7.5s.
 - `/api/stash` — CRUD for user's personal yarn stash (auth required)
 - `/api/stash/[id]` — Single stash yarn
+- `/api/projects` — List (GET) and create (POST) the user's projects; each row carries its `project_yarns` via a PostgREST embed
+- `/api/projects/[id]` — Single project: GET, PATCH (a `yarns` array replaces the project's yarn list), DELETE
+
+The projects routes speak the database's snake_case shape, like `/api/stash`; `projectRowToProject()` converts to the camelCase `Project` the UI uses. Body → column mapping is shared between the two route files by `lib/projects/columns.ts`, which lives outside `app/api/` because a Next route file may only export route handlers.
 - `/api/patterns` — User's patterns
 - `/api/patterns/upload` — PDF upload → store in Supabase Storage → detect available sizes (phase 1)
 - `/api/patterns/upload/extract` — Queue a full extraction for a selected size; returns `202 { jobId }` (phase 2)
@@ -73,7 +77,11 @@ The brand list behind those last two routes is derived, not stored. There is no 
 
 ### Context providers
 
-Layout wraps the app in a provider hierarchy: `AuthProvider` → `UploadProvider` → Navbar + children + `UploadStatusBar`. The upload flow uses `useUpload()` hook (from `lib/upload/UploadContext.tsx`) to manage file validation, the two upload phases, and status transitions (`idle` → `uploading` → `selecting_size` → `extracting` → `success`/`error`). The `UploadStatusBar` component renders fixed bottom-right feedback based on this state.
+Layout wraps the app in a provider hierarchy: `AuthProvider` → `ProjectsProvider` → `UploadProvider` → Navbar + children + `UploadStatusBar`.
+
+`ProjectsProvider` (`lib/projects/ProjectsContext.tsx`) holds one shared read of the user's projects behind a `useProjects()` hook. The dashboard, the queue page and the sidebar's queued-count badge all want the same list, and the sidebar is mounted on every route, so fetching once here keeps it to a single request per session. It keys its effect off `user.id` rather than the `user` object, which Supabase replaces on every token refresh, and stays signed-out-quiet: no user means no request.
+
+The upload flow uses `useUpload()` hook (from `lib/upload/UploadContext.tsx`) to manage file validation, the two upload phases, and status transitions (`idle` → `uploading` → `selecting_size` → `extracting` → `success`/`error`). The `UploadStatusBar` component renders fixed bottom-right feedback based on this state.
 
 While a job is running, its id is persisted to `localStorage`, so reloading the page rejoins the in-flight extraction rather than orphaning it.
 
