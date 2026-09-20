@@ -55,6 +55,8 @@ interface PatternData {
     pdf_filename?: string
     notes?: string
     created_at: string
+    /** The size the extraction was run for, or null if it covered every size. */
+    selected_size?: string | null
   }
   details: {
     sizes?: string[]
@@ -166,7 +168,11 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
       }
       const result = await response.json()
       setData(result)
-      if (result.wip?.selected_size) {
+      // The size the extraction ran for wins: its values are baked into every
+      // instruction_text, so a saved WIP size must not contradict them.
+      if (result.pattern?.selected_size) {
+        setSelectedSize(result.pattern.selected_size)
+      } else if (result.wip?.selected_size) {
         setSelectedSize(result.wip.selected_size)
       }
       if (result.sections?.length > 0) {
@@ -222,7 +228,15 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
         setCurrentStepIndex(savedIndex)
       }
     }
-    // If the pattern has sizes and none is selected yet, show size picker first
+    // A pattern extracted for one size has no size_variations to filter, so
+    // there is nothing to choose — go straight to following it.
+    const bakedSize = data?.pattern?.selected_size ?? null
+    if (bakedSize) {
+      setSelectedSize(bakedSize)
+      setFollowMode(true)
+      return
+    }
+    // Otherwise the extraction covered every size and the choice is real.
     const hasSizes = data?.details?.sizes && data.details.sizes.length > 0
     if (hasSizes && !selectedSize) {
       setShowSizePicker(true)
@@ -342,11 +356,15 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
   }
 
   const { pattern, details, materials, sections } = data
+  // When a size was chosen at upload, lib/patterns/extraction-prompt.ts asks for
+  // that size's values only and suppresses size_variations — so the numbers on
+  // screen are fixed and the other sizes cannot be offered.
+  const extractedSize = pattern.selected_size ?? null
   const hasGauge = details?.gauge_stitches || details?.gauge_rows
   const currentStep = flatSteps[currentStepIndex]
 
   // ─── Size picker screen ───
-  if (showSizePicker && details?.sizes && details.sizes.length > 0) {
+  if (showSizePicker && !extractedSize && details?.sizes && details.sizes.length > 0) {
     return (
       <div className="min-h-screen bg-background">
         <main className="container mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-8">
@@ -615,22 +633,35 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
               {details.sizes.map((size) => (
                 <button
                   key={size}
-                  onClick={() => handleSizeSelect(selectedSize === size ? null : size)}
+                  type="button"
+                  disabled={extractedSize !== null}
+                  onClick={() => {
+                    if (extractedSize !== null) return
+                    handleSizeSelect(selectedSize === size ? null : size)
+                  }}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                     selectedSize === size
                       ? 'bg-terracotta text-white'
-                      : 'bg-foreground/5 text-foreground/70 hover:bg-foreground/10'
+                      : extractedSize !== null
+                        ? 'bg-foreground/5 text-foreground/30 cursor-not-allowed'
+                        : 'bg-foreground/5 text-foreground/70 hover:bg-foreground/10'
                   }`}
                 >
                   {size}
                 </button>
               ))}
             </div>
-            {selectedSize && (
+            {extractedSize ? (
+              <p className="text-xs text-foreground/50 mt-2">
+                This pattern was extracted for size {extractedSize}, so every instruction
+                already shows that size&apos;s values. Upload the PDF again and choose a
+                different size to follow one.
+              </p>
+            ) : selectedSize ? (
               <p className="text-xs text-foreground/50 mt-2">
                 Instructions will show values for size {selectedSize}. Click again to deselect.
               </p>
-            )}
+            ) : null}
           </Card>
         )}
 

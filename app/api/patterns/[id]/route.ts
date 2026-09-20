@@ -28,7 +28,16 @@ export async function GET(
     const [detailsRes, materialsRes, sectionsRes, wipRes] = await Promise.all([
       supabase
         .from('pattern_details')
-        .select('*')
+        // Every column except raw_extraction, which holds the full Claude
+        // response. It is kept so a pattern can be re-decomposed without
+        // another extraction call, but nothing renders it and it is ~17KB of
+        // JSON per pattern. Same treatment as raw_data in app/api/yarns/route.ts.
+        .select(
+          `id, pattern_id, sizes, finished_measurements,
+           gauge_stitches, gauge_rows, gauge_needle_size, gauge_notes,
+           needles, notions, abbreviations, created_at,
+           construction_method, stitch_techniques`
+        )
         .eq('pattern_id', id)
         .single(),
       supabase
