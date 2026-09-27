@@ -99,7 +99,7 @@ export default function ResetPasswordPage() {
       } else {
         setStatus('saved')
         // The recovery session is a real session, so the user is now signed in.
-        setTimeout(() => router.push('/stash'), 1500)
+        setTimeout(() => router.push('/dashboard'), 1500)
       }
     } catch {
       setError('An unexpected error occurred')
