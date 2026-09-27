@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ExtractedPatternData } from '@/lib/types/pattern'
 import { buildExtractionPrompt } from './extraction-prompt'
+import { normalizeLigaturesDeep } from './normalize-text'
 
 // claude-sonnet-4-20250514 was retired and now returns 404, which broke
 // extraction outright. Sonnet 5 is the documented successor for that tier.
@@ -219,7 +220,7 @@ function parseExtraction(
   }
 
   try {
-    const parsed = JSON.parse(jsonText) as ExtractedPatternData
+    const parsed = normalizeLigaturesDeep(JSON.parse(jsonText) as ExtractedPatternData)
     console.log(
       `Extraction parsed (size: ${selectedSize ?? 'all'}): ` +
         `${parsed.sections?.length ?? 0} sections, ` +
