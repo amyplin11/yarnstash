@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef, use, Suspense } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, use, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth/AuthContext'
@@ -8,6 +8,8 @@ import { Card } from '@/app/components/ui/Card'
 import { Badge } from '@/app/components/ui/Badge'
 import { Button } from '@/app/components/ui/Button'
 import { StitchCounters } from '@/app/components/patterns/StitchCounters'
+import { ProjectNotesCard, StepNotes } from '@/app/components/patterns/PatternNotes'
+import { usePatternNotes } from '@/app/components/patterns/usePatternNotes'
 import type { NotesContent, ChartContent, StitchPatternContent, SchematicContent } from '@/lib/types/pattern'
 
 interface Instruction {
@@ -119,6 +121,7 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
   const [showSizePicker, setShowSizePicker] = useState(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const autoResumedRef = useRef(false)
+  const notesApi = usePatternNotes(id, !!user)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -259,6 +262,21 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
     autoResumedRef.current = true
     enterFollowMode()
   }, [wantsResume, loading, data, flatSteps, enterFollowMode])
+
+  // "Body · Row 12" for each step, in knitting order — how step notes are
+  // labelled and ordered in the Notes card.
+  const stepLabels = useMemo(() => {
+    const labels = new Map<string, string>()
+    for (const { sectionName, instruction: instr } of flatSteps) {
+      const where = instr.row_start
+        ? instr.row_end && instr.row_end !== instr.row_start
+          ? `Rows ${instr.row_start}–${instr.row_end}`
+          : `Row ${instr.row_start}`
+        : `Step ${instr.step_number}`
+      labels.set(instr.id, `${sectionName} · ${where}`)
+    }
+    return labels
+  }, [flatSteps])
 
   // Get the instruction text for the user's selected size
   const textForSize = (instr: Instruction): string => {
@@ -551,6 +569,9 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
             )}
           </Card>
 
+          {/* Notes for this step — added as you go */}
+          <StepNotes api={notesApi} instructionId={instr.id} variant="follow" className="mb-6" />
+
           {/* Counters — kept within thumb's reach of the step buttons */}
           <StitchCounters patternId={id} variant="compact" className="mb-6" />
 
@@ -763,6 +784,24 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
           </Card>
         )}
 
+        {/* Notes — the project's details first, then anything tied to a step */}
+        <ProjectNotesCard
+          api={notesApi}
+          stepLabels={stepLabels}
+          suggestions={{
+            size: selectedSize ?? undefined,
+            yarn:
+              materials
+                .map((m) => [m.yarn_brand, m.yarn_name].filter(Boolean).join(' '))
+                .filter(Boolean)
+                .join(', ') || undefined,
+            needles:
+              details?.needles
+                ?.map((n) => [n.size, n.type].filter(Boolean).join(' '))
+                .join(', ') || undefined,
+          }}
+        />
+
         {/* Empty sections warning */}
         {sections.length === 0 && (
           <Card className="p-6 mb-8 border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/10">
@@ -905,6 +944,7 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
                                     ))}
                                   </div>
                                 )}
+                                <StepNotes api={notesApi} instructionId={instr.id} />
                               </div>
                             </div>
                           ))}

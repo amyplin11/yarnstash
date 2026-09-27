@@ -127,6 +127,20 @@ export async function DELETE(
       await supabase.storage.from('pattern-pdfs').remove([storagePath])
     }
 
+    // Notes go first. pattern_notes predates migration tracking, so whether its
+    // foreign keys to patterns and pattern_instructions cascade is unknown — if
+    // either does not, a single note would block the delete below.
+    const { error: notesError } = await supabase
+      .from('pattern_notes')
+      .delete()
+      .eq('pattern_id', id)
+      .eq('user_id', userId)
+
+    if (notesError) {
+      console.error('Error deleting pattern notes:', notesError)
+      return NextResponse.json({ error: 'Failed to delete pattern' }, { status: 500 })
+    }
+
     // Delete the pattern (cascades to details, materials, sections, instructions, glossary)
     const { error: deleteError } = await supabase
       .from('patterns')
