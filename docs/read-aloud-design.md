@@ -16,8 +16,9 @@ Mode already walks a pattern one instruction at a time; this adds a voice.
 1. **Speakable text is built on the client** from data Follow Mode already has:
    the row label, the row flags, the instruction text for the selected size, and
    the pattern's own abbreviations.
-2. **`POST /api/tts`** forwards that text to ElevenLabs and streams back MP3.
-   The API key never leaves the server.
+2. **`POST /api/tts`** forwards that text to ElevenLabs and returns the finished
+   MP3 (buffered, not streamed; see [Caching](#caching)). The API key never
+   leaves the server.
 3. **The browser plays it**, either on tap (🔊) or automatically each time the
    knitter moves to a new step (Auto-read).
 
@@ -125,9 +126,11 @@ POST /api/tts
   with header `xi-api-key`, body `{ text, model_id: "eleven_flash_v2_5" }`.
   Flash is the low-latency and low-cost model; it matters more that "Next" feels
   instant than that the voice is studio quality.
-- **Cache:** an in-memory LRU keyed by `sha256(voice + model + text)`, capped at around
-  50 MB. Rows repeat a lot ("Knit to end", "Rep rows 3–4"), so this is cheap and
-  catches a lot.
+- **Buffered, not streamed:** the route waits for the complete MP3 from ElevenLabs
+  before responding, because it needs the whole file to cache it. A row is only
+  ~20–50 KB, so true streaming would barely change latency.
+- **Cache:** an in-memory LRU. See [Caching](#caching) for where it lives and when
+  it resets.
 - **Errors:** an ElevenLabs 4xx/5xx becomes `502 { error }`. The upstream body is
   logged but never echoed to the client.
 
@@ -176,25 +179,81 @@ themselves, so the app works without ElevenLabs.
 
 ---
 
+## Caching
+
+ElevenLabs does no caching on our behalf: every generation is billed, even
+for identical text. The caches below exist only to avoid paying twice for the
+same sentence. **Both are automatic in Phase 1. There is nothing to configure,
+clear or monitor.**
+
+| | Browser tab cache | Server cache |
+|---|---|---|
+| Lives in | the knitter's tab (`useReadAloud`) | our Next.js backend process (`/api/tts` module memory) |
+| Managed by | our code | our code. Not ElevenLabs, and not the host (Vercel or otherwise); the host only decides when the process lives or dies |
+| Key | spoken text | `sha256(voice + model + text)` |
+| Shared across | one tab | every request handled by that one server instance, across users |
+| Bound | the life of the tab | ~50 MB, least recently used evicted first |
+
+Rows repeat a lot ("Knit to end", "Rep rows 3–4"), so even a short-lived cache
+catches a meaningful share of requests.
+
+### When the server cache resets
+
+It is a variable in process memory, so it is lost whenever the process ends:
+
+- **Every deploy.** New code means new processes.
+- **Idle shutdown.** Serverless hosts stop instances after a period with no
+  traffic, often minutes. For a small app this is the most common reset.
+- **Scale-out.** Concurrent instances each hold their own separate cache.
+- **Local dev.** Every restart of `npm run dev`.
+- **Eviction** (partial, not a reset): past the size cap, the least recently used rows are dropped.
+
+### What happens after a reset
+
+```mermaid
+sequenceDiagram
+    participant B as Browser tab
+    participant API as /api/tts (fresh process)
+    participant EL as ElevenLabs
+
+    B->>B: tab cache hit? → play, no request (survives server resets)
+    B->>API: miss: POST { text }
+    API->>API: server cache empty after reset
+    API->>EL: generate again (billed again)
+    EL-->>API: full MP3 (~0.5–1s)
+    API->>API: store in cache
+    API-->>B: MP3
+```
+
+Nothing breaks. The cost is one regeneration per unique row per process
+lifetime. In practice, Phase 1 savings come from **within a knitting session**,
+not across days.
+
+### Persistent cache (Phase 1.5)
+
+Store MP3s in a Supabase Storage bucket under the same hash key. Then a row is
+generated **once, ever**, survives deploys and idle shutdowns, and is shared by
+every instance. Setup is a single migration that creates the bucket
+(`npm run db:push`); after that it is just as automatic. Growth is bounded by the
+number of *unique* rows across all patterns, so a cleanup policy can wait.
+
+---
+
 ## Cost
 
 Rough numbers to sanity-check, not a quote. ElevenLabs bills per character.
 
 - A typical row spoken: ~80–200 characters.
 - A sweater with ~400 steps read once: roughly 40–80k characters.
-- The server cache plus the client cache mean re-reads and repeated rows are free.
-
-⚠️ The in-memory cache resets on each deploy or cold start (Vercel functions
-are ephemeral). See below.
+- Phase 1 caches make re-reads within a session free. Reads after a server
+  reset are billed again until the Phase 1.5 persistent cache exists.
 
 ---
 
 ## Later
 
-**Phase 1.5 — persistent cache.** Store MP3s in a Supabase Storage bucket keyed
-by the same hash, so audio survives deploys and is generated once per unique row
-across all users. This needs a new bucket plus a migration, which is why it
-isn't in Phase 1.
+**Phase 1.5 — persistent cache.** See [Persistent cache](#persistent-cache-phase-15).
+It needs a new bucket plus a migration, which is why it isn't in Phase 1.
 
 **Phase 1.5 — prefetch.** After playing step *i*, quietly fetch step *i+1* so
 the next "Next" plays instantly.
