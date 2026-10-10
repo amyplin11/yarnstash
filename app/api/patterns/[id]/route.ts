@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getRequestUser } from '@/lib/auth/require-user'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { pdfStoragePath, removePatternImages } from '@/lib/patterns/pattern-images'
 
 export async function GET(
   _request: NextRequest,
@@ -123,9 +125,14 @@ export async function DELETE(
 
     // Delete the PDF from storage if it exists
     if (pattern.pdf_url) {
-      const storagePath = `${userId}/${pattern.pdf_url.split(`${userId}/`).pop()}`
-      await supabase.storage.from('pattern-pdfs').remove([storagePath])
+      await supabase.storage
+        .from('pattern-pdfs')
+        .remove([pdfStoragePath(pattern.pdf_url, userId)])
     }
+
+    // Images were written with the service-role client, so remove them with
+    // it too rather than depending on the bucket's delete policy.
+    await removePatternImages(createAdminClient(), userId, pattern.id)
 
     // Delete the pattern (cascades to details, materials, sections, instructions, glossary)
     const { error: deleteError } = await supabase
