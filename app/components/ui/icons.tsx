@@ -241,6 +241,23 @@ export function CloseIcon(props: IconProps) {
   )
 }
 
+export function SpeakerIcon(props: IconProps) {
+  return (
+    <Line {...props}>
+      <path d="M11 5L6 9H3v6h3l5 4V5z" />
+      <path d="M15.5 8.5a5 5 0 010 7M18.5 5.5a9 9 0 010 13" />
+    </Line>
+  )
+}
+
+export function StopIcon(props: IconProps) {
+  return (
+    <Line {...props}>
+      <rect x="6" y="6" width="12" height="12" rx="2" />
+    </Line>
+  )
+}
+
 /** The wordmark tile: a ball of yarn on a dark rounded square. */
 export function YarnMark({ className = '' }: { className?: string }) {
   return (

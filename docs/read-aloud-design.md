@@ -2,9 +2,9 @@
 
 Hands-free narration of pattern instructions while knitting.
 
-> **Status: design — not built yet.** This is the plan for branch
-> `worktree-elevenlabs-read-aloud`. Anything marked ⚠️ is a known limitation or
-> open question, not settled behaviour.
+> **Status: Phase 1 built** on branch `worktree-elevenlabs-read-aloud`. Phase 1.5
+> and Phase 2 under [Later](#later) are not built. Anything marked ⚠️ is a known
+> limitation or open question, not settled behaviour.
 
 ---
 

@@ -74,6 +74,7 @@ The projects routes speak the database's snake_case shape, like `/api/stash`; `p
 - `/api/patterns/upload` — PDF upload → store in Supabase Storage → detect available sizes (phase 1)
 - `/api/patterns/upload/extract` — Queue a full extraction for a selected size; returns `202 { jobId }` (phase 2)
 - `/api/patterns/jobs/[id]` — Poll extraction job status
+- `/api/tts` — Read-aloud for Follow Mode: `POST { text }` → MP3 from ElevenLabs, cached in process memory; `GET` reports whether it is configured. Spoken text is built by `lib/speech/speakable.ts`. See `docs/read-aloud-design.md`
 - `/api/patterns/[id]/counters` — List (GET) and add (POST) a pattern's stitch counters
 - `/api/patterns/[id]/counters/[counterId]` — Rename or set the value (PATCH), remove (DELETE)
 
@@ -138,6 +139,7 @@ Required in `.env.local` (see `.env.example` for the template):
 - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` — Supabase client
 - `SUPABASE_SERVICE_ROLE_KEY` — Admin access for import scripts
 - `ANTHROPIC_API_KEY` — Pattern PDF extraction
+- `ELEVENLABS_API_KEY` — Read-aloud in Follow Mode. Optional: without it the read-aloud controls hide. `ELEVENLABS_VOICE_ID` optionally overrides the voice
 - `RAVELRY_USERNAME`, `RAVELRY_PASSWORD` — Only needed for the yarn import script (not required at runtime)
 
 ### Path alias

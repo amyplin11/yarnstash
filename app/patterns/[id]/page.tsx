@@ -8,6 +8,10 @@ import { Card } from '@/app/components/ui/Card'
 import { Badge } from '@/app/components/ui/Badge'
 import { Button } from '@/app/components/ui/Button'
 import { StitchCounters } from '@/app/components/patterns/StitchCounters'
+import { useReadAloud } from '@/app/components/patterns/useReadAloud'
+import { useAutoRead, toggleAutoRead } from '@/app/components/patterns/autoReadState'
+import { SpeakerIcon, StopIcon } from '@/app/components/ui/icons'
+import { toSpeakable } from '@/lib/speech/speakable'
 import type { NotesContent, ChartContent, StitchPatternContent, SchematicContent } from '@/lib/types/pattern'
 
 interface Instruction {
@@ -260,6 +264,31 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
     enterFollowMode()
   }, [wantsResume, loading, data, flatSteps, enterFollowMode])
 
+  // ─── Read-aloud (docs/read-aloud-design.md) ───
+  const readAloud = useReadAloud()
+  const autoRead = useAutoRead()
+  const { speak, stop } = readAloud
+  const abbreviations = data?.details?.abbreviations
+
+  const speakStep = useCallback(
+    (index: number) => {
+      const step = flatSteps[index]
+      if (step) speak(toSpeakable(step.instruction, { size: selectedSize, abbreviations }))
+    },
+    [flatSteps, selectedSize, abbreviations, speak]
+  )
+
+  // Auto-read: speak each step as the knitter reaches it. Turning the toggle
+  // on also reads the current step — that tap is what unlocks browser audio.
+  useEffect(() => {
+    if (followMode && autoRead && readAloud.available) speakStep(currentStepIndex)
+  }, [followMode, autoRead, readAloud.available, currentStepIndex, speakStep])
+
+  // Leaving Follow Mode silences it.
+  useEffect(() => {
+    if (!followMode) stop()
+  }, [followMode, stop])
+
   // Get the instruction text for the user's selected size
   const textForSize = (instr: Instruction): string => {
     if (selectedSize && instr.size_variations?.[selectedSize]) {
@@ -448,6 +477,22 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
               Overview
             </button>
             <div className="flex items-center gap-2">
+              {readAloud.available && (
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={autoRead}
+                  onClick={toggleAutoRead}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                    autoRead
+                      ? 'bg-terracotta text-parchment'
+                      : 'bg-foreground/5 text-foreground/60 hover:text-foreground'
+                  }`}
+                >
+                  <SpeakerIcon className="w-3.5 h-3.5" />
+                  Auto-read {autoRead ? 'on' : 'off'}
+                </button>
+              )}
               {selectedSize && (
                 <Badge text={`Size ${selectedSize}`} variant="primary" />
               )}
@@ -513,6 +558,32 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
               {instr.is_setup_row && <Badge text="setup" variant="info" />}
               {instr.is_decrease_row && <Badge text="decrease" variant="warning" />}
               {instr.is_increase_row && <Badge text="increase" variant="success" />}
+
+              {readAloud.available && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    readAloud.status === 'playing' || readAloud.status === 'loading'
+                      ? stop()
+                      : speakStep(currentStepIndex)
+                  }
+                  aria-label={readAloud.status === 'playing' ? 'Stop reading' : 'Read this step aloud'}
+                  className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm text-foreground/70 hover:text-foreground hover:bg-foreground/5 transition-colors"
+                >
+                  {readAloud.status === 'loading' ? (
+                    <span className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                  ) : readAloud.status === 'playing' ? (
+                    <StopIcon className="w-4 h-4" />
+                  ) : (
+                    <SpeakerIcon className="w-4 h-4" />
+                  )}
+                  {readAloud.status === 'playing'
+                    ? 'Stop'
+                    : readAloud.status === 'error'
+                    ? 'Try again'
+                    : 'Read aloud'}
+                </button>
+              )}
             </div>
 
             {/* Instruction text */}
