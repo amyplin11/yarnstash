@@ -9,7 +9,12 @@ import { Badge } from '@/app/components/ui/Badge'
 import { Button } from '@/app/components/ui/Button'
 import { StitchCounters } from '@/app/components/patterns/StitchCounters'
 import { useReadAloud } from '@/app/components/patterns/useReadAloud'
-import { useAutoRead, toggleAutoRead } from '@/app/components/patterns/autoReadState'
+import {
+  useAutoRead,
+  toggleAutoRead,
+  useVoicePreference,
+  setVoicePreference,
+} from '@/app/components/patterns/readAloudPrefs'
 import { SpeakerIcon, StopIcon } from '@/app/components/ui/icons'
 import { toSpeakable } from '@/lib/speech/speakable'
 import type { NotesContent, ChartContent, StitchPatternContent, SchematicContent } from '@/lib/types/pattern'
@@ -269,14 +274,24 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
   const autoRead = useAutoRead()
   const { speak, stop } = readAloud
   const abbreviations = data?.details?.abbreviations
+  // A stored voice that is no longer in the library falls back to the default.
+  const storedVoice = useVoicePreference()
+  const voiceId = readAloud.voices.some((v) => v.id === storedVoice) ? storedVoice : null
 
   const speakStep = useCallback(
-    (index: number) => {
+    (index: number, voice: string | null = voiceId) => {
       const step = flatSteps[index]
-      if (step) speak(toSpeakable(step.instruction, { size: selectedSize, abbreviations }))
+      if (step) speak(toSpeakable(step.instruction, { size: selectedSize, abbreviations }), voice)
     },
-    [flatSteps, selectedSize, abbreviations, speak]
+    [flatSteps, selectedSize, abbreviations, speak, voiceId]
   )
+
+  const chooseVoice = (id: string) => {
+    setVoicePreference(id)
+    // Let the knitter hear the new voice on the row in front of them. With
+    // Auto-read on, the effect below already re-reads it in the new voice.
+    if (!autoRead) speakStep(currentStepIndex, id)
+  }
 
   // Auto-read: speak each step as the knitter reaches it. Turning the toggle
   // on also reads the current step — that tap is what unlocks browser audio.
@@ -476,7 +491,7 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
               </svg>
               Overview
             </button>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2">
               {readAloud.available && (
                 <button
                   type="button"
@@ -492,6 +507,20 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
                   <SpeakerIcon className="w-3.5 h-3.5" />
                   Auto-read {autoRead ? 'on' : 'off'}
                 </button>
+              )}
+              {readAloud.available && readAloud.voices.length > 0 && (
+                <select
+                  aria-label="Read-aloud voice"
+                  value={voiceId ?? readAloud.defaultVoiceId ?? ''}
+                  onChange={(e) => chooseVoice(e.target.value)}
+                  className="max-w-[9rem] truncate px-3 py-1 rounded-full text-xs font-medium bg-foreground/5 text-foreground/70 hover:text-foreground border-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
+                >
+                  {readAloud.voices.map((v) => (
+                    <option key={v.id} value={v.id} title={v.description}>
+                      {v.name}{v.description ? ` — ${v.description}` : ''}
+                    </option>
+                  ))}
+                </select>
               )}
               {selectedSize && (
                 <Badge text={`Size ${selectedSize}`} variant="primary" />

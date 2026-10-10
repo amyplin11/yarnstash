@@ -133,18 +133,37 @@ POST /api/tts
   it resets.
 - **Errors:** an ElevenLabs 4xx/5xx becomes `502 { error }`. The upstream body is
   logged but never echoed to the client.
+- **Voice:** `POST` takes an optional `voiceId`. Without one, it uses the default
+  (`ELEVENLABS_VOICE_ID`, or "Alice"). An id not in the voice list is a `400`.
+  See [Voices](#voices).
+
+### Voices
+
+`lib/speech/voices.ts`
+
+- `GET /api/tts` returns `{ enabled, voices, defaultVoiceId }`. `voices` comes from
+  ElevenLabs `GET /v1/voices`: the account's library, which is the 21 premade
+  voices plus any you add. It's reduced to `{ id, name, description }` and cached
+  in memory for an hour.
+- **The list is an allowlist.** `POST` only uses a voice that is listed (or is the
+  configured default), so a client can't spend credits on arbitrary voice ids.
+- Adding a voice to your ElevenLabs library makes it appear in the picker within
+  the hour. No code change is needed.
+- The voice is part of both cache keys, so switching voices never plays a row in
+  the old voice.
 
 ### `useReadAloud()` — playback state
 
 `app/components/patterns/useReadAloud.ts`
 
 ```ts
-const { speak, stop, status /* idle | loading | playing | error */ } = useReadAloud()
+const { speak, stop, status, available, voices, defaultVoiceId } = useReadAloud()
+speak(text, voiceId /* null = server default */)
 ```
 
 - Holds one `HTMLAudioElement`. `speak()` always stops whatever is playing first,
   so tapping Next quickly never stacks voices.
-- Keeps a per-tab `Map<text, blobURL>` so Previous → Next replays without a request.
+- Keeps a per-tab `Map<voice + text, blobURL>` so Previous → Next replays without a request.
 - Stops on unmount and when leaving Follow Mode.
 - Ignores a stale response: if the knitter moves on while a request is in flight,
   the late audio is dropped rather than played.
@@ -156,6 +175,10 @@ const { speak, stop, status /* idle | loading | playing | error */ } = useReadAl
 - **Auto-read** toggle in the top bar, next to the size badge. It is stored in
   `localStorage` (a per-device preference, same approach as `sidebarState`) and
   wrapped in try/catch.
+- **Voice picker** in the top bar, next to Auto-read. The choice is stored per
+  device in `localStorage`, alongside Auto-read (`readAloudPrefs.ts`). Picking a
+  voice reads the current step in it. A stored voice that has since left the
+  library falls back to the default.
 - When Auto-read is on, `useEffect` on `currentStepIndex` calls `speak()`.
 - ⚠️ Browsers block audio that isn't started by a user gesture. Turning Auto-read on
   is a tap, and that tap unlocks playback for the session. After a full page reload
@@ -170,8 +193,9 @@ const { speak, stop, status /* idle | loading | playing | error */ } = useReadAl
 ```bash
 # ─── ElevenLabs (read-aloud in Follow Mode) ─────────────────
 ELEVENLABS_API_KEY=sk_...
-# Optional. Defaults to a premade voice; any voice ID from your ElevenLabs library works.
-# ELEVENLABS_VOICE_ID=21m00Tcm4TlvDq8ikWAM
+# Optional. The voice used until a knitter picks one in Follow Mode. Defaults
+# to "Alice"; any voice ID from your ElevenLabs library works.
+# ELEVENLABS_VOICE_ID=Xb7hH8MSUJpSbSDYk0k2
 ```
 
 If the key is missing, `/api/tts` returns `503` and the 🔊 controls hide
@@ -280,7 +304,9 @@ its own design review.
 |---|---|
 | `app/api/tts/route.ts` | **new** — auth, limits, LRU, ElevenLabs call |
 | `lib/speech/speakable.ts` | **new** — instruction → spoken text |
+| `lib/speech/voices.ts` | **new** — voice list, default voice, allowlist check |
 | `app/components/patterns/useReadAloud.ts` | **new** — playback hook |
-| `app/patterns/[id]/page.tsx` | 🔊 button, Auto-read toggle, effect on step change |
+| `app/components/patterns/readAloudPrefs.ts` | **new** — per-device Auto-read and voice choice |
+| `app/patterns/[id]/page.tsx` | 🔊 button, Auto-read toggle, voice picker, effect on step change |
 | `.env.example` | `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID` |
 | `CLAUDE.md` | add `/api/tts` to the API routes list |

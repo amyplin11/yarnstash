@@ -139,7 +139,7 @@ Required in `.env.local` (see `.env.example` for the template):
 - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` — Supabase client
 - `SUPABASE_SERVICE_ROLE_KEY` — Admin access for import scripts
 - `ANTHROPIC_API_KEY` — Pattern PDF extraction
-- `ELEVENLABS_API_KEY` — Read-aloud in Follow Mode. Optional: without it the read-aloud controls hide. `ELEVENLABS_VOICE_ID` optionally overrides the voice
+- `ELEVENLABS_API_KEY` — Read-aloud in Follow Mode. Optional: without it the read-aloud controls hide. `ELEVENLABS_VOICE_ID` optionally sets the default voice (knitters can pick another in Follow Mode)
 - `RAVELRY_USERNAME`, `RAVELRY_PASSWORD` — Only needed for the yarn import script (not required at runtime)
 
 ### Path alias

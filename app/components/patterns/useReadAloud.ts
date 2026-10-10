@@ -4,6 +4,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 export type ReadAloudStatus = 'idle' | 'loading' | 'playing' | 'error'
 
+export interface VoiceOption {
+  id: string
+  name: string
+  description: string
+}
+
 /**
  * Playback for Follow Mode's read-aloud. Fetches audio from /api/tts and plays
  * it through a single <audio> element, so speaking again always cuts off the
@@ -13,8 +19,10 @@ export function useReadAloud() {
   const [status, setStatus] = useState<ReadAloudStatus>('idle')
   // null until /api/tts says whether ElevenLabs is configured.
   const [available, setAvailable] = useState<boolean | null>(null)
+  const [voices, setVoices] = useState<VoiceOption[]>([])
+  const [defaultVoiceId, setDefaultVoiceId] = useState<string | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
-  // Per-tab cache, so Previous → Next replays without a request.
+  // Per-tab cache, keyed by voice + text, so Previous → Next replays without a request.
   const cacheRef = useRef(new Map<string, string>())
   // Bumped by every speak()/stop(); a response for an older ticket is stale.
   const ticketRef = useRef(0)
@@ -24,7 +32,10 @@ export function useReadAloud() {
     fetch('/api/tts')
       .then((res) => (res.ok ? res.json() : { enabled: false }))
       .then((result) => {
-        if (!cancelled) setAvailable(Boolean(result.enabled))
+        if (cancelled) return
+        setAvailable(Boolean(result.enabled))
+        setVoices(result.voices ?? [])
+        setDefaultVoiceId(result.defaultVoiceId ?? null)
       })
       .catch(() => {
         if (!cancelled) setAvailable(false)
@@ -49,18 +60,20 @@ export function useReadAloud() {
     setStatus('idle')
   }, [])
 
-  const speak = useCallback(async (text: string) => {
+  /** Speak `text`; `voiceId` null means the server's default voice. */
+  const speak = useCallback(async (text: string, voiceId: string | null = null) => {
     const ticket = ++ticketRef.current
     audioRef.current?.pause()
 
-    let url = cacheRef.current.get(text)
+    const cacheKey = `${voiceId ?? ''}\0${text}`
+    let url = cacheRef.current.get(cacheKey)
     if (!url) {
       setStatus('loading')
       try {
         const res = await fetch('/api/tts', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text }),
+          body: JSON.stringify(voiceId ? { text, voiceId } : { text }),
         })
         if (!res.ok) {
           if (res.status === 503) setAvailable(false)
@@ -68,7 +81,7 @@ export function useReadAloud() {
         }
         url = URL.createObjectURL(await res.blob())
         // Cache even if stale — it was paid for, and Previous may want it.
-        cacheRef.current.set(text, url)
+        cacheRef.current.set(cacheKey, url)
       } catch (err) {
         console.error(err)
         if (ticket === ticketRef.current) setStatus('error')
@@ -94,5 +107,5 @@ export function useReadAloud() {
     }
   }, [])
 
-  return { speak, stop, status, available }
+  return { speak, stop, status, available, voices, defaultVoiceId }
 }

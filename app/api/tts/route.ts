@@ -1,6 +1,7 @@
 import { createHash } from 'crypto'
 import { NextResponse } from 'next/server'
 import { getRequestUser } from '@/lib/auth/require-user'
+import { defaultVoiceId, isAllowedVoice, listVoices } from '@/lib/speech/voices'
 
 /**
  * Read-aloud for Follow Mode — the only code that talks to ElevenLabs.
@@ -14,8 +15,6 @@ import { getRequestUser } from '@/lib/auth/require-user'
 // matters more here than studio-quality narration.
 const MODEL_ID = 'eleven_flash_v2_5'
 const OUTPUT_FORMAT = 'mp3_44100_64'
-// A premade ElevenLabs voice; override with ELEVENLABS_VOICE_ID.
-const DEFAULT_VOICE_ID = '21m00Tcm4TlvDq8ikWAM'
 
 // The longest real rows are a few hundred characters. The cap bounds what a
 // single request can spend, since ElevenLabs bills per character.
@@ -64,13 +63,24 @@ function audioResponse(audio: ArrayBuffer): Response {
   })
 }
 
-/** Whether read-aloud is configured — the UI hides its controls when it isn't. */
+/**
+ * Whether read-aloud is configured, and which voices it can use. The UI hides
+ * its controls when it isn't configured.
+ */
 export async function GET() {
   const { userId } = await getRequestUser()
   if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-  return NextResponse.json({ enabled: Boolean(process.env.ELEVENLABS_API_KEY) })
+  const apiKey = process.env.ELEVENLABS_API_KEY
+  if (!apiKey) {
+    return NextResponse.json({ enabled: false, voices: [], defaultVoiceId: null })
+  }
+  return NextResponse.json({
+    enabled: true,
+    voices: await listVoices(apiKey),
+    defaultVoiceId: defaultVoiceId(),
+  })
 }
 
 export async function POST(request: Request) {
@@ -98,7 +108,12 @@ export async function POST(request: Request) {
       )
     }
 
-    const voiceId = process.env.ELEVENLABS_VOICE_ID || DEFAULT_VOICE_ID
+    const voiceId =
+      typeof body?.voiceId === 'string' && body.voiceId ? body.voiceId : defaultVoiceId()
+    if (!(await isAllowedVoice(apiKey, voiceId))) {
+      return NextResponse.json({ error: 'Unknown voice' }, { status: 400 })
+    }
+
     const key = createHash('sha256').update(`${voiceId}\0${MODEL_ID}\0${text}`).digest('base64url')
 
     const cached = cacheGet(key)
