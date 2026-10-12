@@ -140,6 +140,7 @@ Required in `.env.local` (see `.env.example` for the template):
 - `SUPABASE_SERVICE_ROLE_KEY` — Admin access for import scripts
 - `ANTHROPIC_API_KEY` — Pattern PDF extraction
 - `ELEVENLABS_API_KEY` — Read-aloud in Follow Mode. Optional: without it the read-aloud controls hide. `ELEVENLABS_VOICE_ID` optionally sets the default voice (knitters can pick another in Follow Mode)
+- `READ_ALOUD_USER_IDS` — Read-aloud is in private preview: comma-separated Supabase user ids who get it. Unset means nobody, `*` means everyone. Enforced in `/api/tts` (`lib/speech/access.ts`), not just the UI
 - `RAVELRY_USERNAME`, `RAVELRY_PASSWORD` — Only needed for the yarn import script (not required at runtime)
 
 ### Path alias

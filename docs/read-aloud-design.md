@@ -201,6 +201,19 @@ ELEVENLABS_API_KEY=sk_...
 If the key is missing, `/api/tts` returns `503` and the 🔊 controls hide
 themselves, so the app works without ElevenLabs.
 
+### Private preview
+
+Read-aloud is only available to the users in `READ_ALOUD_USER_IDS`, a
+comma-separated list of Supabase user ids (`lib/speech/access.ts`).
+
+- **Unset means nobody.** Deploying this branch exposes nothing until the
+  variable is set.
+- **`*` means everyone.** That is the switch for launch, with no code change.
+- **Enforced on the server.** For anyone outside the list, `GET /api/tts`
+  reports `enabled: false` and `POST` answers `503`, exactly as if ElevenLabs
+  weren't configured. The controls stay hidden, and calling the endpoint
+  directly can't spend credits.
+
 ---
 
 ## Caching
@@ -304,9 +317,10 @@ its own design review.
 |---|---|
 | `app/api/tts/route.ts` | **new** — auth, limits, LRU, ElevenLabs call |
 | `lib/speech/speakable.ts` | **new** — instruction → spoken text |
+| `lib/speech/access.ts` | **new** — private-preview allowlist |
 | `lib/speech/voices.ts` | **new** — voice list, default voice, allowlist check |
 | `app/components/patterns/useReadAloud.ts` | **new** — playback hook |
 | `app/components/patterns/readAloudPrefs.ts` | **new** — per-device Auto-read and voice choice |
 | `app/patterns/[id]/page.tsx` | 🔊 button, Auto-read toggle, voice picker, effect on step change |
-| `.env.example` | `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID` |
+| `.env.example` | `ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID`, `READ_ALOUD_USER_IDS` |
 | `CLAUDE.md` | add `/api/tts` to the API routes list |

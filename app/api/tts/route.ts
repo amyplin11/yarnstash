@@ -1,6 +1,7 @@
 import { createHash } from 'crypto'
 import { NextResponse } from 'next/server'
 import { getRequestUser } from '@/lib/auth/require-user'
+import { canUseReadAloud } from '@/lib/speech/access'
 import { defaultVoiceId, isAllowedVoice, listVoices } from '@/lib/speech/voices'
 
 /**
@@ -64,8 +65,9 @@ function audioResponse(audio: ArrayBuffer): Response {
 }
 
 /**
- * Whether read-aloud is configured, and which voices it can use. The UI hides
- * its controls when it isn't configured.
+ * Whether read-aloud is available to this user, and which voices it can use.
+ * The UI hides its controls when it isn't — unconfigured, or the user is not
+ * in the private preview.
  */
 export async function GET() {
   const { userId } = await getRequestUser()
@@ -73,7 +75,7 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   const apiKey = process.env.ELEVENLABS_API_KEY
-  if (!apiKey) {
+  if (!apiKey || !canUseReadAloud(userId)) {
     return NextResponse.json({ enabled: false, voices: [], defaultVoiceId: null })
   }
   return NextResponse.json({
@@ -91,9 +93,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Outside the private preview looks the same as unconfigured, so the
+    // client hides its controls either way.
     const apiKey = process.env.ELEVENLABS_API_KEY
-    if (!apiKey) {
-      return NextResponse.json({ error: 'Read-aloud is not configured' }, { status: 503 })
+    if (!apiKey || !canUseReadAloud(userId)) {
+      return NextResponse.json({ error: 'Read-aloud is not available' }, { status: 503 })
     }
 
     const body = await request.json().catch(() => null)
