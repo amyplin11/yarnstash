@@ -8,6 +8,15 @@ import { Card } from '@/app/components/ui/Card'
 import { Badge } from '@/app/components/ui/Badge'
 import { Button } from '@/app/components/ui/Button'
 import { StitchCounters } from '@/app/components/patterns/StitchCounters'
+import { useReadAloud } from '@/app/components/patterns/useReadAloud'
+import {
+  useAutoRead,
+  toggleAutoRead,
+  useVoicePreference,
+  setVoicePreference,
+} from '@/app/components/patterns/readAloudPrefs'
+import { SpeakerIcon, StopIcon } from '@/app/components/ui/icons'
+import { toSpeakable } from '@/lib/speech/speakable'
 import type { NotesContent, ChartContent, StitchPatternContent, SchematicContent } from '@/lib/types/pattern'
 
 interface Instruction {
@@ -260,6 +269,41 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
     enterFollowMode()
   }, [wantsResume, loading, data, flatSteps, enterFollowMode])
 
+  // ─── Read-aloud (docs/read-aloud-design.md) ───
+  const readAloud = useReadAloud()
+  const autoRead = useAutoRead()
+  const { speak, stop } = readAloud
+  const abbreviations = data?.details?.abbreviations
+  // A stored voice that is no longer in the library falls back to the default.
+  const storedVoice = useVoicePreference()
+  const voiceId = readAloud.voices.some((v) => v.id === storedVoice) ? storedVoice : null
+
+  const speakStep = useCallback(
+    (index: number, voice: string | null = voiceId) => {
+      const step = flatSteps[index]
+      if (step) speak(toSpeakable(step.instruction, { size: selectedSize, abbreviations }), voice)
+    },
+    [flatSteps, selectedSize, abbreviations, speak, voiceId]
+  )
+
+  const chooseVoice = (id: string) => {
+    setVoicePreference(id)
+    // Let the knitter hear the new voice on the row in front of them. With
+    // Auto-read on, the effect below already re-reads it in the new voice.
+    if (!autoRead) speakStep(currentStepIndex, id)
+  }
+
+  // Auto-read: speak each step as the knitter reaches it. Turning the toggle
+  // on also reads the current step — that tap is what unlocks browser audio.
+  useEffect(() => {
+    if (followMode && autoRead && readAloud.available) speakStep(currentStepIndex)
+  }, [followMode, autoRead, readAloud.available, currentStepIndex, speakStep])
+
+  // Leaving Follow Mode silences it.
+  useEffect(() => {
+    if (!followMode) stop()
+  }, [followMode, stop])
+
   // Get the instruction text for the user's selected size
   const textForSize = (instr: Instruction): string => {
     if (selectedSize && instr.size_variations?.[selectedSize]) {
@@ -447,7 +491,37 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
               </svg>
               Overview
             </button>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              {readAloud.available && (
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={autoRead}
+                  onClick={toggleAutoRead}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                    autoRead
+                      ? 'bg-terracotta text-parchment'
+                      : 'bg-foreground/5 text-foreground/60 hover:text-foreground'
+                  }`}
+                >
+                  <SpeakerIcon className="w-3.5 h-3.5" />
+                  Auto-read {autoRead ? 'on' : 'off'}
+                </button>
+              )}
+              {readAloud.available && readAloud.voices.length > 0 && (
+                <select
+                  aria-label="Read-aloud voice"
+                  value={voiceId ?? readAloud.defaultVoiceId ?? ''}
+                  onChange={(e) => chooseVoice(e.target.value)}
+                  className="max-w-[9rem] truncate px-3 py-1 rounded-full text-xs font-medium bg-foreground/5 text-foreground/70 hover:text-foreground border-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-terracotta"
+                >
+                  {readAloud.voices.map((v) => (
+                    <option key={v.id} value={v.id} title={v.description}>
+                      {v.name}{v.description ? ` — ${v.description}` : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
               {selectedSize && (
                 <Badge text={`Size ${selectedSize}`} variant="primary" />
               )}
@@ -513,6 +587,32 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
               {instr.is_setup_row && <Badge text="setup" variant="info" />}
               {instr.is_decrease_row && <Badge text="decrease" variant="warning" />}
               {instr.is_increase_row && <Badge text="increase" variant="success" />}
+
+              {readAloud.available && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    readAloud.status === 'playing' || readAloud.status === 'loading'
+                      ? stop()
+                      : speakStep(currentStepIndex)
+                  }
+                  aria-label={readAloud.status === 'playing' ? 'Stop reading' : 'Read this step aloud'}
+                  className="ml-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm text-foreground/70 hover:text-foreground hover:bg-foreground/5 transition-colors"
+                >
+                  {readAloud.status === 'loading' ? (
+                    <span className="w-4 h-4 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                  ) : readAloud.status === 'playing' ? (
+                    <StopIcon className="w-4 h-4" />
+                  ) : (
+                    <SpeakerIcon className="w-4 h-4" />
+                  )}
+                  {readAloud.status === 'playing'
+                    ? 'Stop'
+                    : readAloud.status === 'error'
+                    ? 'Try again'
+                    : 'Read aloud'}
+                </button>
+              )}
             </div>
 
             {/* Instruction text */}
