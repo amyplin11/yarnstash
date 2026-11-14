@@ -78,6 +78,10 @@ The projects routes speak the database's snake_case shape, like `/api/stash`; `p
 - `/api/patterns/[id]/counters/[counterId]` — Rename or set the value (PATCH), remove (DELETE)
 
 Counters are named tallies a knitter keeps while working a pattern, stored one row per counter in `pattern_counters` — `user_pattern_progress.row_counter` / `repeat_counter` are two fixed unnamed slots and can't be renamed or multiplied. `StitchCounters` (`app/components/patterns/`) renders them as a card on the pattern overview and as a compact strip in follow-along mode; taps update locally and the write is debounced, with pending values flushed on unmount.
+- `/api/patterns/[id]/notes` — List (GET) and add (POST) a pattern's notes
+- `/api/patterns/[id]/notes/[noteId]` — Edit (PATCH), remove (DELETE)
+
+Notes live in `pattern_notes` (a pre-existing table, so no migration). `instruction_id` null means the note is about the project; set, it belongs to one step. Project *details* — size knit, yarn used, needles used, gauge, modifications — are rows whose `note_type` names the field, one per field (POSTing an existing field overwrites it); everything else is `note_type = 'general'`. The field list is `PROJECT_DETAIL_FIELDS` in `lib/patterns/notes.ts`. The pattern page owns one `usePatternNotes()` read and passes it to `ProjectNotesCard` (overview: Project section first, then step notes grouped by step) and `StepNotes` (under each instruction, and as a card in follow-along mode). Pattern DELETE removes notes explicitly first, since the table's FK cascade behaviour isn't captured in source.
 
 ### Context providers
 

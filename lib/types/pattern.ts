@@ -1,5 +1,7 @@
 // Pattern-related types for PDF import and viewing
 
+import type { NoteType } from '@/lib/patterns/notes'
+
 export interface Pattern {
   id: string
   user_id: string
@@ -155,12 +157,13 @@ export interface PatternNote {
   id: string
   user_id: string
   pattern_id: string
-  instruction_id?: string
+  /** Null for notes about the project as a whole; see lib/patterns/notes.ts. */
+  instruction_id: string | null
   note_text: string
-  note_type?: 'general' | 'tip' | 'warning' | 'modification'
+  note_type: NoteType
   is_pinned?: boolean
-  created_at?: Date
-  updated_at?: Date
+  created_at: string
+  updated_at?: string
 }
 
 // === Complete pattern with all related data ===
