@@ -93,15 +93,13 @@ export async function runExtractionJob(jobId: string): Promise<void> {
       async (progress) => updateJob(supabase, jobId, { progress })
     )
 
-    const { publicUrl } = supabase.storage
-      .from('pattern-pdfs')
-      .getPublicUrl(job.storage_path).data
-
+    // No getPublicUrl() here on purpose: the bucket is private, so a public
+    // URL would be a dead link the moment it was written. Reads go through
+    // GET /api/patterns/[id]/pdf, which signs the stored path on demand.
     const { patternId, patternName, warnings } = await persistPattern(
       supabase,
       job,
-      extractedData,
-      publicUrl
+      extractedData
     )
 
     await updateJob(supabase, jobId, {
@@ -255,8 +253,7 @@ function parseNumeric(val: unknown): number | null {
 async function persistPattern(
   supabase: SupabaseClient,
   job: PatternJob,
-  extractedData: ExtractedPatternData,
-  publicUrl: string
+  extractedData: ExtractedPatternData
 ): Promise<{ patternId: string; patternName: string; warnings: string[] }> {
   const warnings: string[] = []
 
@@ -269,7 +266,7 @@ async function persistPattern(
       difficulty: extractedData.difficulty,
       pattern_type: extractedData.pattern_type,
       selected_size: job.selected_size,
-      pdf_url: publicUrl,
+      storage_path: job.storage_path,
       pdf_filename: job.file_name,
     })
     .select()

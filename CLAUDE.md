@@ -74,6 +74,7 @@ The projects routes speak the database's snake_case shape, like `/api/stash`; `p
 - `/api/patterns/upload` — PDF upload → store in Supabase Storage → detect available sizes (phase 1)
 - `/api/patterns/upload/extract` — Queue a full extraction for a selected size; returns `202 { jobId }` (phase 2)
 - `/api/patterns/jobs/[id]` — Poll extraction job status
+- `/api/patterns/[id]/pdf` — Redirects to a 60-second signed URL for the stored PDF. The `pattern-pdfs` bucket is private, so this route is the only read path; `patterns.storage_path` (not the legacy `pdf_url`) is the source of truth
 - `/api/patterns/[id]/counters` — List (GET) and add (POST) a pattern's stitch counters
 - `/api/patterns/[id]/counters/[counterId]` — Rename or set the value (PATCH), remove (DELETE)
 
