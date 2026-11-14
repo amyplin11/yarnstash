@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase/server'
+import { getRequestUser } from '@/lib/auth/require-user'
 
 // A job still 'processing' after this long is treated as dead. The background
 // worker is bounded by the extract route's maxDuration, so anything past that
@@ -14,13 +14,8 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    const supabase = createServerClient()
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const { supabase, userId } = await getRequestUser()
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

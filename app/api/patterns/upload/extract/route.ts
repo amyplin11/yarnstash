@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse, after } from 'next/server'
-import { createServerClient } from '@/lib/supabase/server'
+import { getRequestUser } from '@/lib/auth/require-user'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { runExtractionJob } from '@/lib/patterns/extract-job'
 
@@ -16,13 +16,8 @@ export const maxDuration = 300
 // GET /api/patterns/jobs/[id] for the outcome.
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerClient()
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const { supabase, userId } = await getRequestUser()
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -43,7 +38,7 @@ export async function POST(request: NextRequest) {
     // Verify the storage path belongs to this user before queueing work
     // against it — the background worker runs with the service-role key and
     // bypasses RLS, so this is the only place ownership is enforced.
-    if (!storagePath.startsWith(`${user.id}/`)) {
+    if (!storagePath.startsWith(`${userId}/`)) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
@@ -51,7 +46,7 @@ export async function POST(request: NextRequest) {
     const { data: job, error: jobError } = await admin
       .from('pattern_jobs')
       .insert({
-        user_id: user.id,
+        user_id: userId,
         status: 'pending',
         storage_path: storagePath,
         file_name: fileName,

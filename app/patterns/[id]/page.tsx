@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef, use } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useCallback, useRef, use, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { Card } from '@/app/components/ui/Card'
 import { Badge } from '@/app/components/ui/Badge'
 import { Button } from '@/app/components/ui/Button'
+import { StitchCounters } from '@/app/components/patterns/StitchCounters'
 import type { NotesContent, ChartContent, StitchPatternContent, SchematicContent } from '@/lib/types/pattern'
 
 interface Instruction {
@@ -56,6 +57,8 @@ interface PatternData {
     pdf_filename?: string
     notes?: string
     created_at: string
+    /** The size the extraction was run for, or null if it covered every size. */
+    selected_size?: string | null
   }
   details: {
     sizes?: string[]
@@ -98,10 +101,13 @@ const difficultyVariant: Record<string, 'success' | 'info' | 'warning' | 'frogge
   advanced: 'frogged',
 }
 
-export default function PatternDetailPage({ params }: { params: Promise<{ id: string }> }) {
+function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  // ?resume=1 — set by the "Current Projects" cards, which promise "Resume →".
+  const wantsResume = searchParams.get('resume') === '1'
   const [data, setData] = useState<PatternData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -113,6 +119,7 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
   const [selectedSize, setSelectedSize] = useState<string | null>(null)
   const [showSizePicker, setShowSizePicker] = useState(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const autoResumedRef = useRef(false)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -167,7 +174,11 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
       }
       const result = await response.json()
       setData(result)
-      if (result.wip?.selected_size) {
+      // The size the extraction ran for wins: its values are baked into every
+      // instruction_text, so a saved WIP size must not contradict them.
+      if (result.pattern?.selected_size) {
+        setSelectedSize(result.pattern.selected_size)
+      } else if (result.wip?.selected_size) {
         setSelectedSize(result.wip.selected_size)
       }
       if (result.sections?.length > 0) {
@@ -223,7 +234,15 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
         setCurrentStepIndex(savedIndex)
       }
     }
-    // If the pattern has sizes and none is selected yet, show size picker first
+    // A pattern extracted for one size has no size_variations to filter, so
+    // there is nothing to choose — go straight to following it.
+    const bakedSize = data?.pattern?.selected_size ?? null
+    if (bakedSize) {
+      setSelectedSize(bakedSize)
+      setFollowMode(true)
+      return
+    }
+    // Otherwise the extraction covered every size and the choice is real.
     const hasSizes = data?.details?.sizes && data.details.sizes.length > 0
     if (hasSizes && !selectedSize) {
       setShowSizePicker(true)
@@ -231,6 +250,16 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
     }
     setFollowMode(true)
   }, [data, flatSteps, selectedSize])
+
+  // Arriving from a "Current Projects" card (?resume=1) drops straight into
+  // step-by-step instead of the overview. Fires once, so tapping "Overview"
+  // from inside follow mode doesn't bounce you right back in.
+  useEffect(() => {
+    if (!wantsResume || autoResumedRef.current) return
+    if (loading || !data || flatSteps.length === 0) return
+    autoResumedRef.current = true
+    enterFollowMode()
+  }, [wantsResume, loading, data, flatSteps, enterFollowMode])
 
   // Get the instruction text for the user's selected size
   const textForSize = (instr: Instruction): string => {
@@ -343,11 +372,15 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
   }
 
   const { pattern, details, materials, sections } = data
+  // When a size was chosen at upload, lib/patterns/extraction-prompt.ts asks for
+  // that size's values only and suppresses size_variations — so the numbers on
+  // screen are fixed and the other sizes cannot be offered.
+  const extractedSize = pattern.selected_size ?? null
   const hasGauge = details?.gauge_stitches || details?.gauge_rows
   const currentStep = flatSteps[currentStepIndex]
 
   // ─── Size picker screen ───
-  if (showSizePicker && details?.sizes && details.sizes.length > 0) {
+  if (showSizePicker && !extractedSize && details?.sizes && details.sizes.length > 0) {
     return (
       <div className="min-h-screen bg-background">
         <main className="container mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-8">
@@ -519,6 +552,9 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
             )}
           </Card>
 
+          {/* Counters — kept within thumb's reach of the step buttons */}
+          <StitchCounters patternId={id} variant="compact" className="mb-6" />
+
           {/* Navigation */}
           <div className="flex items-center justify-between">
             <Button
@@ -616,24 +652,40 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
               {details.sizes.map((size) => (
                 <button
                   key={size}
-                  onClick={() => handleSizeSelect(selectedSize === size ? null : size)}
+                  type="button"
+                  disabled={extractedSize !== null}
+                  onClick={() => {
+                    if (extractedSize !== null) return
+                    handleSizeSelect(selectedSize === size ? null : size)
+                  }}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                     selectedSize === size
                       ? 'bg-terracotta text-white'
-                      : 'bg-foreground/5 text-foreground/70 hover:bg-foreground/10'
+                      : extractedSize !== null
+                        ? 'bg-foreground/5 text-foreground/30 cursor-not-allowed'
+                        : 'bg-foreground/5 text-foreground/70 hover:bg-foreground/10'
                   }`}
                 >
                   {size}
                 </button>
               ))}
             </div>
-            {selectedSize && (
+            {extractedSize ? (
+              <p className="text-xs text-foreground/50 mt-2">
+                This pattern was extracted for size {extractedSize}, so every instruction
+                already shows that size&apos;s values. Upload the PDF again and choose a
+                different size to follow one.
+              </p>
+            ) : selectedSize ? (
               <p className="text-xs text-foreground/50 mt-2">
                 Instructions will show values for size {selectedSize}. Click again to deselect.
               </p>
-            )}
+            ) : null}
           </Card>
         )}
+
+        {/* Stitch counters */}
+        <StitchCounters patternId={id} />
 
         {/* Info cards row */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
@@ -736,7 +788,9 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
               <h2 className="text-lg font-semibold text-foreground">Pattern Instructions</h2>
               {flatSteps.length > 0 && (
                 <Button variant="primary" onClick={enterFollowMode}>
-                  {data.wip?.current_instruction_id ? 'Continue' : 'Step by Step'}
+                  {/* Starting step-by-step is what makes this a project, on the
+                      dashboard and under Current Projects — so say so. */}
+                  {data.wip?.current_instruction_id ? 'Continue project' : 'Start project'}
                 </Button>
               )}
             </div>
@@ -936,5 +990,15 @@ export default function PatternDetailPage({ params }: { params: Promise<{ id: st
         )}
       </main>
     </div>
+  )
+}
+
+// useSearchParams() opts the subtree into client-side rendering, which Next
+// requires a Suspense boundary for. Without it the build fails on this route.
+export default function PatternDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  return (
+    <Suspense fallback={null}>
+      <PatternDetailPageInner params={params} />
+    </Suspense>
   )
 }

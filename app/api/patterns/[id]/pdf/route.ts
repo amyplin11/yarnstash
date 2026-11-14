@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase/server'
+import { getRequestUser } from '@/lib/auth/require-user'
 import { storagePathForPattern } from '@/lib/patterns/storage-path'
 
 // How long a minted link stays valid. Long enough to follow the redirect and
@@ -26,13 +26,8 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    const supabase = createServerClient()
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const { supabase, userId } = await getRequestUser()
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -40,7 +35,7 @@ export async function GET(
       .from('patterns')
       .select('id, storage_path, pdf_url')
       .eq('id', id)
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .single()
 
     // A pattern owned by someone else is a 404, not a 403 — no point

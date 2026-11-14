@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
-import { createServerClient } from '@/lib/supabase/server'
+import { getRequestUser } from '@/lib/auth/require-user'
 import { RECEIPT_PROMPT, RECEIPT_SCHEMA } from '@/lib/yarns/receipt-prompt'
 
 // A receipt can be a multi-page PDF, and this reads every line item off it.
@@ -15,10 +15,8 @@ const MAX_BYTES = 12 * 1024 * 1024
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createServerClient()
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const { supabase, userId } = await getRequestUser()
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

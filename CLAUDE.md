@@ -48,7 +48,7 @@ Always run before committing: `npm run lint && npm run typecheck`. The build (`n
 
 ### Database tables (Supabase)
 
-**User-scoped (RLS by `user_id`):** `stash_yarns`, `projects`, `project_yarns`, `patterns`, `pattern_details`, `pattern_materials`, `pattern_sections`, `pattern_instructions`, `pattern_stitch_glossary`, `user_pattern_progress`, `pattern_notes`, `pattern_jobs`
+**User-scoped (RLS by `user_id`):** `stash_yarns`, `projects`, `project_yarns`, `patterns`, `pattern_details`, `pattern_materials`, `pattern_sections`, `pattern_instructions`, `pattern_stitch_glossary`, `user_pattern_progress`, `pattern_notes`, `pattern_jobs`, `pattern_counters`
 
 `pattern_jobs` is read-only to users (select policy only) — it is written by the background extraction worker via the service-role client.
 
@@ -66,15 +66,27 @@ Migrations are in `supabase/migrations/`, managed by the Supabase CLI and applie
 The brand list behind those last two routes is derived, not stored. There is no `yarn_companies` table, PostgREST has no DISTINCT, and aggregate functions are disabled on this project, so `lib/yarns/brand-index.ts` sweeps the catalog once and caches the ~13k distinct brands in memory for 6 hours. Autocomplete only uses the index once it is warm, so a keystroke never waits on that sweep. Two performance constraints drive the rest: brand filtering uses exact matching because `ILIKE` with a leading wildcard forces a sequential scan (~2.2s vs ~0.3s), and suggestions go through `search_vector` with a `to_tsquery` prefix (`malab:*`) because `ILIKE` name search measured ~7.5s.
 - `/api/stash` — CRUD for user's personal yarn stash (auth required)
 - `/api/stash/[id]` — Single stash yarn
+- `/api/projects` — List (GET) and create (POST) the user's projects; each row carries its `project_yarns` via a PostgREST embed
+- `/api/projects/[id]` — Single project: GET, PATCH (a `yarns` array replaces the project's yarn list), DELETE
+
+The projects routes speak the database's snake_case shape, like `/api/stash`; `projectRowToProject()` converts to the camelCase `Project` the UI uses. Body → column mapping is shared between the two route files by `lib/projects/columns.ts`, which lives outside `app/api/` because a Next route file may only export route handlers.
 - `/api/patterns` — User's patterns
 - `/api/patterns/upload` — PDF upload → store in Supabase Storage → detect available sizes (phase 1)
 - `/api/patterns/upload/extract` — Queue a full extraction for a selected size; returns `202 { jobId }` (phase 2)
 - `/api/patterns/jobs/[id]` — Poll extraction job status
 - `/api/patterns/[id]/pdf` — Redirects to a 60-second signed URL for the stored PDF. The `pattern-pdfs` bucket is private, so this route is the only read path; `patterns.storage_path` (not the legacy `pdf_url`) is the source of truth
+- `/api/patterns/[id]/counters` — List (GET) and add (POST) a pattern's stitch counters
+- `/api/patterns/[id]/counters/[counterId]` — Rename or set the value (PATCH), remove (DELETE)
+
+Counters are named tallies a knitter keeps while working a pattern, stored one row per counter in `pattern_counters` — `user_pattern_progress.row_counter` / `repeat_counter` are two fixed unnamed slots and can't be renamed or multiplied. `StitchCounters` (`app/components/patterns/`) renders them as a card on the pattern overview and as a compact strip in follow-along mode; taps update locally and the write is debounced, with pending values flushed on unmount.
 
 ### Context providers
 
-Layout wraps the app in a provider hierarchy: `AuthProvider` → `UploadProvider` → Navbar + children + `UploadStatusBar`. The upload flow uses `useUpload()` hook (from `lib/upload/UploadContext.tsx`) to manage file validation, the two upload phases, and status transitions (`idle` → `uploading` → `selecting_size` → `extracting` → `success`/`error`). The `UploadStatusBar` component renders fixed bottom-right feedback based on this state.
+Layout wraps the app in a provider hierarchy: `AuthProvider` → `ProjectsProvider` → `UploadProvider` → Navbar + children + `UploadStatusBar`.
+
+`ProjectsProvider` (`lib/projects/ProjectsContext.tsx`) holds one shared read of the user's projects behind a `useProjects()` hook. The dashboard, the queue page and the sidebar's queued-count badge all want the same list, and the sidebar is mounted on every route, so fetching once here keeps it to a single request per session. It keys its effect off `user.id` rather than the `user` object, which Supabase replaces on every token refresh, and stays signed-out-quiet: no user means no request.
+
+The upload flow uses `useUpload()` hook (from `lib/upload/UploadContext.tsx`) to manage file validation, the two upload phases, and status transitions (`idle` → `uploading` → `selecting_size` → `extracting` → `success`/`error`). The `UploadStatusBar` component renders fixed bottom-right feedback based on this state.
 
 While a job is running, its id is persisted to `localStorage`, so reloading the page rejoins the in-flight extraction rather than orphaning it.
 
@@ -85,6 +97,17 @@ See `docs/pattern-upload-flow.md` for the end-to-end flow, diagrams, failure mod
 `app/api/patterns/upload/route.ts` sends uploaded PDFs to the Anthropic API (Claude Sonnet 4) for structured extraction. The response is parsed as `ExtractedPatternData` and decomposed across multiple tables (pattern_details, pattern_materials, pattern_sections, pattern_instructions, pattern_stitch_glossary).
 
 **Section content polymorphism:** Sections use a `section_type` discriminator. `written_instructions` sections store rows in the `pattern_instructions` table; other types (`chart`, `stitch_pattern`, `schematic`, `notes`) store data as JSONB in the `content` column of `pattern_sections`. The TypeScript types mirror this with a discriminated union on `section_type`.
+
+### What counts as a project "in progress"
+
+Two tables can each claim to describe a project, and they are not the same thing:
+
+- **A pattern you are knitting** — a `patterns` row whose `user_pattern_progress` has `current_instruction_id` set and no `completed_at`. This is what "Start project" on a pattern page creates, and it drives the dashboard's *In progress* stat and the *Current Projects* section on both the dashboard and `/patterns`.
+- **A row in `projects`** — the queue. Drives the dashboard's *Queued projects* stat, the sidebar badge and `/queue`. Nothing writes to it yet; there is no create-project UI.
+
+The rule lives in one place, `lib/patterns/progress.ts` (`isActiveProject` / `activeProjects`), because the dashboard and the patterns library once defined it differently and visibly disagreed. A progress row on its own is not enough — one is written as soon as a size is picked, so a pattern that was only opened and sized is not a project yet. Both pages render active projects with the shared `ActiveProjectCard`.
+
+`user_pattern_progress` has a `project_id` column, so a pattern's progress can eventually be tied to a real `projects` row; nothing sets it today.
 
 ### Type system
 
@@ -108,7 +131,7 @@ Types are in `lib/types/` and re-exported from `lib/types/index.ts`:
 
 `/api/*` is deliberately exempt: those routes authenticate themselves and answer `401` in JSON, and redirecting them to an HTML login page would break that contract.
 
-Treat the middleware as a routing gate, not the security boundary. Real enforcement remains RLS on every user-scoped table plus the per-route `createServerClient()` + `getUser()` checks. Pages still run their own `useAuth()` checks, which now act as a second layer rather than the only one.
+Treat the middleware as a routing gate, not the security boundary. Real enforcement remains RLS on every user-scoped table plus the per-route `getRequestUser()` checks. Pages still run their own `useAuth()` checks, which now act as a second layer rather than the only one.
 
 ### Environment variables
 
@@ -139,7 +162,7 @@ Required in `.env.local` (see `.env.example` for the template):
 
 All API routes in `app/api/` follow this structure:
 1. Parse request (searchParams for GET, body for POST/PUT/DELETE)
-2. Auth check via `createServerClient()` + `supabase.auth.getUser()` for user-scoped routes
+2. Auth check via `getRequestUser()` from `lib/auth/require-user.ts` for user-scoped routes — it returns `{ supabase, userId }`; answer `401` when `userId` is `null`. Do **not** call `supabase.auth.getUser()` per request: it is a network call to `/auth/v1/user`, which Supabase caps at 30 requests per 5 minutes per IP, and one request per route blows that budget during ordinary use. `getRequestUser()` validates a given access token once and caches the answer for 60s (bounded by the token's own expiry)
 3. Database operation
 4. Return `NextResponse.json()` with appropriate status codes
 

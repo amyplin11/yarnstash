@@ -31,7 +31,7 @@ function LoginPageInner() {
   // Redirect if already logged in
   useEffect(() => {
     if (user) {
-      router.push('/stash')
+      router.push('/dashboard')
     }
   }, [user, router])
 
@@ -68,7 +68,7 @@ function LoginPageInner() {
           // Email confirmation is off, so the account is already usable and
           // Supabase has signed us in — telling them to check their inbox for a
           // mail that will never arrive just strands them on this page.
-          router.push('/stash')
+          router.push('/dashboard')
         } else {
           setMessage('Account created! Check your email to confirm your account.')
         }
@@ -77,7 +77,7 @@ function LoginPageInner() {
         if (error) {
           setError(error.message)
         } else {
-          router.push('/stash')
+          router.push('/dashboard')
         }
       }
     } catch {

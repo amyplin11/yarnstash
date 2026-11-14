@@ -50,7 +50,17 @@ const initialState: UploadState = {
   warnings: null,
 }
 
-const POLL_INTERVAL_MS = 2000
+// Back off as the wait gets longer. A flat 2s was 30 status checks a minute,
+// and each one authenticates against Supabase, whose /auth/v1/user endpoint
+// allows only 30 requests per 5 minutes per IP — so a single extraction spent
+// the whole window in its first minute and locked the IP out of signing in.
+// Extractions take minutes, so only the opening seconds benefit from a tight
+// interval; after that the user is waiting either way.
+const POLL_SCHEDULE_MS = [2000, 2000, 3000, 5000, 5000, 10000]
+
+function pollDelayMs(attempt: number): number {
+  return POLL_SCHEDULE_MS[Math.min(attempt, POLL_SCHEDULE_MS.length - 1)]
+}
 
 // Give up after this many consecutive network failures. The job itself is
 // durable server-side, so the user can always reload to pick it back up.
@@ -119,10 +129,13 @@ export function UploadProvider({ children }: { children: ReactNode }) {
       stopPolling()
       pollingJobId.current = jobId
       let consecutiveErrors = 0
+      let attempt = 0
 
       const tick = async () => {
         // A newer job (or a dismiss) superseded this poll loop.
         if (pollingJobId.current !== jobId) return
+
+        const nextDelay = pollDelayMs(attempt++)
 
         try {
           const response = await fetch(`/api/patterns/jobs/${jobId}`)
@@ -158,7 +171,7 @@ export function UploadProvider({ children }: { children: ReactNode }) {
             return
           }
 
-          pollTimer.current = setTimeout(tick, POLL_INTERVAL_MS)
+          pollTimer.current = setTimeout(tick, nextDelay)
         } catch (err) {
           consecutiveErrors++
           if (consecutiveErrors >= MAX_CONSECUTIVE_POLL_ERRORS) {
@@ -172,7 +185,7 @@ export function UploadProvider({ children }: { children: ReactNode }) {
             }))
             return
           }
-          pollTimer.current = setTimeout(tick, POLL_INTERVAL_MS)
+          pollTimer.current = setTimeout(tick, nextDelay)
         }
       }
 

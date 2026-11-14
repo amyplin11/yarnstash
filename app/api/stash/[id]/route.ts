@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase/server'
+import { getRequestUser } from '@/lib/auth/require-user'
 
 // PUT - Update stash yarn
 export async function PUT(
@@ -40,12 +41,8 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params
-    const supabase = createServerClient()
-
-    // Get the current user
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-    if (authError || !user) {
+    const { supabase, userId } = await getRequestUser()
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -53,7 +50,7 @@ export async function DELETE(
       .from('stash_yarns')
       .delete()
       .eq('id', id)
-      .eq('user_id', user.id) // Ensure user can only delete their own yarns
+      .eq('user_id', userId) // Ensure user can only delete their own yarns
 
     if (error) {
       console.error('Error deleting stash yarn:', error)

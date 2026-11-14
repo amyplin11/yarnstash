@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase/server'
+import { getRequestUser } from '@/lib/auth/require-user'
 import { storagePathForPattern } from '@/lib/patterns/storage-path'
 
 export async function GET(
@@ -8,10 +8,8 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    const supabase = createServerClient()
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const { supabase, userId } = await getRequestUser()
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -20,7 +18,7 @@ export async function GET(
       .from('patterns')
       .select('*')
       .eq('id', id)
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .single()
 
     if (patternError || !pattern) {
@@ -31,7 +29,16 @@ export async function GET(
     const [detailsRes, materialsRes, sectionsRes, wipRes] = await Promise.all([
       supabase
         .from('pattern_details')
-        .select('*')
+        // Every column except raw_extraction, which holds the full Claude
+        // response. It is kept so a pattern can be re-decomposed without
+        // another extraction call, but nothing renders it and it is ~17KB of
+        // JSON per pattern. Same treatment as raw_data in app/api/yarns/route.ts.
+        .select(
+          `id, pattern_id, sizes, finished_measurements,
+           gauge_stitches, gauge_rows, gauge_needle_size, gauge_notes,
+           needles, notions, abbreviations, created_at,
+           construction_method, stitch_techniques`
+        )
         .eq('pattern_id', id)
         .single(),
       supabase
@@ -48,7 +55,7 @@ export async function GET(
         .from('user_pattern_progress')
         .select('*')
         .eq('pattern_id', id)
-        .eq('user_id', user.id)
+        .eq('user_id', userId)
         .single(),
     ])
 
@@ -98,10 +105,8 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params
-    const supabase = createServerClient()
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const { supabase, userId } = await getRequestUser()
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -110,7 +115,7 @@ export async function DELETE(
       .from('patterns')
       .select('id, user_id, storage_path, pdf_url')
       .eq('id', id)
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .single()
 
     if (fetchError || !pattern) {
@@ -128,7 +133,7 @@ export async function DELETE(
       .from('patterns')
       .delete()
       .eq('id', id)
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
 
     if (deleteError) {
       console.error('Error deleting pattern:', deleteError)

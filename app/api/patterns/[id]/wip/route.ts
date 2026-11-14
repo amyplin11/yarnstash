@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase/server'
+import { getRequestUser } from '@/lib/auth/require-user'
 
 export async function GET(
   _request: NextRequest,
@@ -7,10 +7,8 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    const supabase = createServerClient()
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const { supabase, userId } = await getRequestUser()
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -18,7 +16,7 @@ export async function GET(
       .from('user_pattern_progress')
       .select('*')
       .eq('pattern_id', id)
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .single()
 
     return NextResponse.json({ wip: wip || null })
@@ -34,10 +32,8 @@ export async function PUT(
 ) {
   try {
     const { id } = await params
-    const supabase = createServerClient()
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
+    const { supabase, userId } = await getRequestUser()
+    if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -48,7 +44,7 @@ export async function PUT(
       .from('user_pattern_progress')
       .select('id')
       .eq('pattern_id', id)
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .single()
 
     const progressData = {
@@ -78,7 +74,7 @@ export async function PUT(
       const { data: wip, error } = await supabase
         .from('user_pattern_progress')
         .insert({
-          user_id: user.id,
+          user_id: userId,
           pattern_id: id,
           ...progressData,
         })
