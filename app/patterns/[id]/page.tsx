@@ -8,6 +8,7 @@ import { Card } from '@/app/components/ui/Card'
 import { Badge } from '@/app/components/ui/Badge'
 import { Button } from '@/app/components/ui/Button'
 import { StitchCounters } from '@/app/components/patterns/StitchCounters'
+import { PatternImages } from '@/app/components/patterns/PatternImages'
 import type { NotesContent, ChartContent, StitchPatternContent, SchematicContent } from '@/lib/types/pattern'
 
 interface Instruction {
@@ -640,6 +641,9 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
             </div>
           )}
         </div>
+
+        {/* Photos, charts, and schematics from the PDF */}
+        <PatternImages patternId={id} className="mb-8" />
 
         {/* Size picker */}
         {details?.sizes && details.sizes.length > 0 && (

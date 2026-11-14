@@ -74,6 +74,7 @@ The projects routes speak the database's snake_case shape, like `/api/stash`; `p
 - `/api/patterns/upload` — PDF upload → store in Supabase Storage → detect available sizes (phase 1)
 - `/api/patterns/upload/extract` — Queue a full extraction for a selected size; returns `202 { jobId }` (phase 2)
 - `/api/patterns/jobs/[id]` — Poll extraction job status
+- `/api/patterns/[id]/images` — Images embedded in the pattern PDF, as signed URLs. The extraction job stores them alongside the pattern (`lib/patterns/pattern-images.ts`, under `<userId>/pattern-images/<patternId>/` in `pattern-pdfs`, with a `manifest.json` instead of a table); patterns that predate this are processed on first request. Only raster images are found — vector-drawn charts are not images in the PDF
 - `/api/patterns/[id]/counters` — List (GET) and add (POST) a pattern's stitch counters
 - `/api/patterns/[id]/counters/[counterId]` — Rename or set the value (PATCH), remove (DELETE)
 

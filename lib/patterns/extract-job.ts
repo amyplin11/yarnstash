@@ -3,6 +3,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { ExtractedPatternData } from '@/lib/types/pattern'
 import { buildExtractionPrompt } from './extraction-prompt'
+import { storePatternImages } from './pattern-images'
+import { extractPdfImages } from './pdf-images'
 
 // claude-sonnet-4-20250514 was retired and now returns 404, which broke
 // extraction outright. Sonnet 5 is the documented successor for that tier.
@@ -87,6 +89,14 @@ export async function runExtractionJob(jobId: string): Promise<void> {
     const buffer = await fileData.arrayBuffer()
     const base64PDF = Buffer.from(buffer).toString('base64')
 
+    // Runs alongside the Claude call, which dominates the job's wall-clock.
+    // Images are a nice-to-have: failing here must not fail the pattern, and
+    // leaving no manifest means the images route retries on first view.
+    const imagesPromise = extractPdfImages(new Uint8Array(buffer)).catch((error) => {
+      console.error(`[job ${jobId}] image extraction failed:`, error)
+      return null
+    })
+
     const extractedData = await extractPatternFromPDF(
       base64PDF,
       job.selected_size,
@@ -103,6 +113,15 @@ export async function runExtractionJob(jobId: string): Promise<void> {
       extractedData,
       publicUrl
     )
+
+    const images = await imagesPromise
+    if (images) {
+      try {
+        await storePatternImages(supabase, job.user_id, patternId, images)
+      } catch (error) {
+        console.error(`[job ${jobId}] storing images failed:`, error)
+      }
+    }
 
     await updateJob(supabase, jobId, {
       status: 'succeeded',
