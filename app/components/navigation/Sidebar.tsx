@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/lib/auth/AuthContext'
 import { useProjects } from '@/lib/projects/ProjectsContext'
 import {
@@ -176,6 +176,24 @@ export function Sidebar() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const collapsed = useSidebarCollapsed()
   const hydrated = useHydrated()
+  const mobileBarRef = useRef<HTMLElement>(null)
+
+  // Publish the mobile bar's height as --app-header-h so full-height views
+  // (pattern follow-along) can size themselves to exactly the space beneath
+  // it. The bar is display:none from lg up, which reports 0.
+  useEffect(() => {
+    const bar = mobileBarRef.current
+    if (!bar) return
+    const root = document.documentElement
+    const publish = () => root.style.setProperty('--app-header-h', `${bar.offsetHeight}px`)
+    publish()
+    const observer = new ResizeObserver(publish)
+    observer.observe(bar)
+    return () => {
+      observer.disconnect()
+      root.style.removeProperty('--app-header-h')
+    }
+  }, [pathname])
 
   // The auth screens are standalone — no shell chrome around them.
   if (pathname.startsWith('/auth')) return null
@@ -199,7 +217,7 @@ export function Sidebar() {
       </aside>
 
       {/* Mobile bar */}
-      <header className="sticky top-0 z-40 flex items-center justify-between border-b border-line bg-parchment/90 px-5 py-3.5 backdrop-blur lg:hidden">
+      <header ref={mobileBarRef} className="sticky top-0 z-40 flex items-center justify-between border-b border-line bg-parchment/90 px-5 py-3.5 backdrop-blur lg:hidden">
         <Wordmark />
         <button
           onClick={() => setDrawerOpen(true)}
