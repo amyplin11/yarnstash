@@ -434,11 +434,19 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
       (s) => s.instruction.id === instr.id
     ) + 1
 
+    // Fixed-height column: the header rows keep their size, the step card takes
+    // what's left and scrolls inside itself, and the counters + Previous/Next
+    // stay pinned to the bottom so they don't move as step lengths vary.
+    // Below lg the sidebar becomes a sticky top bar; Sidebar publishes its
+    // height as --app-header-h (0 on desktop) so the column fits beneath it.
     return (
-      <div className="min-h-screen bg-background">
-        <main className="container mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-8">
+      <div
+        className="flex flex-col bg-background"
+        style={{ height: 'calc(100dvh - var(--app-header-h, 0px))' }}
+      >
+        <main className="container mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col px-4 sm:px-6 lg:px-8 pt-8 pb-20">
           {/* Top bar */}
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex shrink-0 items-center justify-between mb-6">
             <button
               onClick={() => setFollowMode(false)}
               className="inline-flex items-center text-sm text-foreground/60 hover:text-foreground transition-colors"
@@ -459,7 +467,7 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
           </div>
 
           {/* Progress bar */}
-          <div className="mb-8">
+          <div className="shrink-0 mb-8">
             <div className="flex items-center justify-between mb-2">
               <p className="text-sm font-medium text-foreground/70">
                 Step {currentStepIndex + 1} of {flatSteps.length}
@@ -477,7 +485,7 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
           </div>
 
           {/* Section context */}
-          <div className="text-center mb-4">
+          <div className="shrink-0 text-center mb-4">
             <p className="text-sm text-foreground/50 uppercase tracking-wide">
               {currentStep.sectionName}
             </p>
@@ -486,8 +494,10 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
             </p>
           </div>
 
-          {/* Main instruction card */}
-          <Card className={`p-8 mb-6 ${
+          {/* Main instruction card — grows with its content, then scrolls once
+              it would push into the pinned controls. Keyed by step so each
+              new step starts scrolled to the top. */}
+          <Card key={instr.id} className={`min-h-0 overflow-y-auto p-8 mb-6 ${
             instr.is_setup_row
               ? 'border-blue-300 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/10'
               : instr.is_decrease_row
@@ -552,34 +562,38 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
             )}
           </Card>
 
-          {/* Counters — kept within thumb's reach of the step buttons */}
-          <StitchCounters patternId={id} variant="compact" className="mb-6" />
+          {/* Pinned controls. mt-auto holds them at the bottom when the card is
+              short; pb-20 on <main> keeps them clear of the floating feedback
+              button. Counters stay within thumb's reach of the step buttons. */}
+          <div className="mt-auto shrink-0">
+            <StitchCounters patternId={id} variant="compact" className="mb-6" />
 
-          {/* Navigation */}
-          <div className="flex items-center justify-between">
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={() => goToStep(currentStepIndex - 1)}
-              disabled={currentStepIndex === 0}
-            >
-              <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              Previous
-            </Button>
+            {/* Navigation */}
+            <div className="flex items-center justify-between">
+              <Button
+                variant="outline"
+                size="lg"
+                onClick={() => goToStep(currentStepIndex - 1)}
+                disabled={currentStepIndex === 0}
+              >
+                <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                Previous
+              </Button>
 
-            <Button
-              variant="primary"
-              size="lg"
-              onClick={() => goToStep(currentStepIndex + 1)}
-              disabled={currentStepIndex >= flatSteps.length - 1}
-            >
-              Next
-              <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </Button>
+              <Button
+                variant="primary"
+                size="lg"
+                onClick={() => goToStep(currentStepIndex + 1)}
+                disabled={currentStepIndex >= flatSteps.length - 1}
+              >
+                Next
+                <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </Button>
+            </div>
           </div>
         </main>
       </div>
