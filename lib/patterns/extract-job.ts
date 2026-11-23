@@ -199,7 +199,7 @@ async function extractPatternFromPDF(
     .join('')
 
   if (!responseText.trim()) {
-    throw new Error('Claude returned an empty response')
+    throw new Error('Extraction returned an empty response')
   }
 
   return parseExtraction(responseText, selectedSize)
@@ -228,7 +228,7 @@ function parseExtraction(
   } catch {
     console.error('Failed to parse extraction. Head:', jsonText.slice(0, 300))
     console.error('Tail:', jsonText.slice(-300))
-    throw new Error('Claude returned invalid JSON for this pattern')
+    throw new Error('Extraction returned invalid data for this pattern')
   }
 }
 
