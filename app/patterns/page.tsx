@@ -97,7 +97,7 @@ export default function PatternsPage() {
               My Patterns
             </h1>
             <p className="text-foreground/70">
-              Your uploaded knitting patterns with AI-extracted instructions
+              Your uploaded knitting patterns with extracted instructions
             </p>
           </div>
           <Link href="/patterns/upload">

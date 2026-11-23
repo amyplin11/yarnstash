@@ -15,7 +15,7 @@ import {
   FileIcon,
 } from '@/app/components/ui/icons'
 
-const STEPS = ['Select file', 'Detect sizes', 'Process AI']
+const STEPS = ['Select file', 'Detect sizes', 'Process instructions']
 
 function Spinner({ className = '' }: { className?: string }) {
   return (
@@ -185,7 +185,7 @@ export default function UploadPatternPage() {
     ? { title: 'Your pattern is ready', body: 'Taking you to it now.' }
     : isExtracting
       ? {
-          title: 'Processing with AI',
+          title: 'Processing instructions',
           body: 'This usually takes 30–60 seconds. You can leave this page — it will keep going and be here when you get back.',
         }
       : isSelectingSize

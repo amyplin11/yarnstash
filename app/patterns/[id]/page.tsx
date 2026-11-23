@@ -774,7 +774,7 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
               <div>
                 <h3 className="font-semibold text-amber-800 dark:text-amber-200">No pattern instructions found</h3>
                 <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
-                  The AI extraction did not capture any step-by-step instructions from this PDF. This can happen if the pattern is very long and the response was truncated. You can try deleting this pattern and re-uploading.
+                  The extraction did not capture any step-by-step instructions from this PDF. This can happen if the pattern is very long and the response was truncated. You can try deleting this pattern and re-uploading.
                 </p>
               </div>
             </div>
