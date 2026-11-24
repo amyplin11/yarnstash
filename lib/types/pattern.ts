@@ -1,5 +1,8 @@
 // Pattern-related types for PDF import and viewing
 
+import type { NoteUsed } from '@/lib/patterns/note-used'
+import type { NoteAnchor } from '@/lib/patterns/note-parts'
+
 export interface Pattern {
   id: string
   user_id: string
@@ -154,16 +157,37 @@ export interface PatternCounter {
   updated_at?: string
 }
 
+/**
+ * A knitter's note on one part of a pattern, for one size. See
+ * lib/patterns/note-parts.ts for how parts are keyed, and the
+ * 20261123170000_pattern_notes_parts migration for the table.
+ */
 export interface PatternNote {
   id: string
   user_id: string
   pattern_id: string
-  instruction_id?: string
+  /** The size being knit when the note was written; null if none was chosen. */
+  size: string | null
+  /** At most one of these four is set; none means the whole pattern. */
+  instruction_id: string | null
+  section_id: string | null
+  material_id: string | null
+  anchor: NoteAnchor | null
+  part_key: string
+  part_label: string | null
+  /** Free text; '' when only `used` was filled in. */
   note_text: string
-  note_type?: 'general' | 'tip' | 'warning' | 'modification'
-  is_pinned?: boolean
-  created_at?: Date
-  updated_at?: Date
+  /** Gauge, needles and yarn: what the knitter used. See lib/patterns/note-used.ts. */
+  used: NoteUsed | null
+  created_at: string
+  updated_at: string
+}
+
+/** Another upload of the same pattern, whose notes are shown alongside. */
+export interface LinkedPatternCopy {
+  id: string
+  name: string
+  selected_size: string | null
 }
 
 // === Complete pattern with all related data ===

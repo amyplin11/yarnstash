@@ -1,3 +1,4 @@
+import { createHash } from 'crypto'
 import Anthropic from '@anthropic-ai/sdk'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -85,7 +86,11 @@ export async function runExtractionJob(jobId: string): Promise<void> {
     }
 
     const buffer = await fileData.arrayBuffer()
-    const base64PDF = Buffer.from(buffer).toString('base64')
+    const pdfBytes = Buffer.from(buffer)
+    const base64PDF = pdfBytes.toString('base64')
+    // Fingerprint of the file, so two uploads of the same PDF (say, once for
+    // size S and once for M) are recognised as one pattern and share notes.
+    const pdfSha256 = createHash('sha256').update(pdfBytes).digest('hex')
 
     const extractedData = await extractPatternFromPDF(
       base64PDF,
@@ -99,7 +104,8 @@ export async function runExtractionJob(jobId: string): Promise<void> {
     const { patternId, patternName, warnings } = await persistPattern(
       supabase,
       job,
-      extractedData
+      extractedData,
+      pdfSha256
     )
 
     await updateJob(supabase, jobId, {
@@ -253,7 +259,8 @@ function parseNumeric(val: unknown): number | null {
 async function persistPattern(
   supabase: SupabaseClient,
   job: PatternJob,
-  extractedData: ExtractedPatternData
+  extractedData: ExtractedPatternData,
+  pdfSha256: string
 ): Promise<{ patternId: string; patternName: string; warnings: string[] }> {
   const warnings: string[] = []
 
@@ -268,6 +275,7 @@ async function persistPattern(
       selected_size: job.selected_size,
       storage_path: job.storage_path,
       pdf_filename: job.file_name,
+      pdf_sha256: pdfSha256,
     })
     .select()
     .single()
