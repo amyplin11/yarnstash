@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef, use, Suspense } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, use, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/lib/auth/AuthContext'
@@ -8,6 +8,11 @@ import { Card } from '@/app/components/ui/Card'
 import { Badge } from '@/app/components/ui/Badge'
 import { Button } from '@/app/components/ui/Button'
 import { StitchCounters } from '@/app/components/patterns/StitchCounters'
+import { PartNote, NoteIcon } from '@/app/components/patterns/PartNote'
+import type { UsedHints } from '@/app/components/patterns/UsedNote'
+import { AllNotesView } from '@/app/components/patterns/AllNotesView'
+import { usePatternNotes } from '@/app/components/patterns/usePatternNotes'
+import { listNoteParts, type NotePart } from '@/lib/patterns/note-parts'
 import type { NotesContent, ChartContent, StitchPatternContent, SchematicContent } from '@/lib/types/pattern'
 
 interface Instruction {
@@ -118,8 +123,41 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
   const [flatSteps, setFlatSteps] = useState<FlatStep[]>([])
   const [selectedSize, setSelectedSize] = useState<string | null>(null)
   const [showSizePicker, setShowSizePicker] = useState(false)
+  const [notesView, setNotesView] = useState(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const autoResumedRef = useRef(false)
+
+  // Notes are kept per size: the one being knit is the one they're written for.
+  const patternNotes = usePatternNotes(id, selectedSize)
+  const noteParts = useMemo(() => (data ? listNoteParts(data) : []), [data])
+  // Look a part up by what it's attached to: a row id, or 'gauge' / 'needles' /
+  // 'notions' / 'pattern' for the blocks without one.
+  const partsByTarget = useMemo(() => {
+    const map = new Map<string, NotePart>()
+    for (const part of noteParts) {
+      const t = part.target
+      map.set(t.kind === 'pattern' ? 'pattern' : t.kind === 'anchor' ? t.anchor : t.id, part)
+    }
+    return map
+  }, [noteParts])
+  const noteFor = (
+    targetKey: string,
+    extra?: { className?: string; addLabel?: string; usedHints?: UsedHints }
+  ) => {
+    const part = partsByTarget.get(targetKey)
+    if (!part) return null
+    return (
+      <PartNote
+        notes={patternNotes}
+        target={part.target}
+        partKey={part.key}
+        partLabel={part.label}
+        className={extra?.className}
+        addLabel={extra?.addLabel}
+        usedHints={extra?.usedHints}
+      />
+    )
+  }
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -377,6 +415,8 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
   // screen are fixed and the other sizes cannot be offered.
   const extractedSize = pattern.selected_size ?? null
   const hasGauge = details?.gauge_stitches || details?.gauge_rows
+  // Offered as suggestions in the "what I used" forms for gauge and needles.
+  const needleSizes = (details?.needles ?? []).map((n) => n.size).filter(Boolean)
   const currentStep = flatSteps[currentStepIndex]
 
   // ─── Size picker screen ───
@@ -421,6 +461,26 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
           </div>
         </main>
       </div>
+    )
+  }
+
+  // ─── All notes ───
+  if (notesView) {
+    return (
+      <AllNotesView
+        patternName={pattern.name}
+        size={selectedSize}
+        parts={noteParts}
+        notes={patternNotes}
+        onBack={() => setNotesView(false)}
+        onGoToStep={(instructionId) => {
+          const index = flatSteps.findIndex((s) => s.instruction.id === instructionId)
+          if (index < 0) return
+          setCurrentStepIndex(index)
+          setNotesView(false)
+          setFollowMode(true)
+        }}
+      />
     )
   }
 
@@ -542,6 +602,17 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
             {instr.notes && (
               <div className="mt-4 p-3 bg-foreground/5 rounded-lg">
                 <p className="text-sm text-foreground/70 italic">{instr.notes}</p>
+              </div>
+            )}
+
+            {/* The knitter's own notes: this step's, then its section's */}
+            {noteFor(instr.id, { className: 'mt-4', addLabel: 'Add a note to this step' })}
+            {patternNotes.mine(partsByTarget.get(currentStep.sectionId)?.key ?? '') && (
+              <div className="mt-3">
+                <p className="text-xs font-semibold text-foreground/50 uppercase tracking-wide mb-1">
+                  {currentStep.sectionName} note
+                </p>
+                {noteFor(currentStep.sectionId)}
               </div>
             )}
 
@@ -701,11 +772,37 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
         {/* Stitch counters */}
         <StitchCounters patternId={id} />
 
+        {/* Notes: the whole-pattern note, and the way into every note */}
+        <Card className="p-5 mb-8">
+          <div className="flex items-center justify-between gap-3 mb-3">
+            <h3 className="text-sm font-semibold text-foreground/60 uppercase tracking-wide">
+              Your notes{selectedSize ? ` · Size ${selectedSize}` : ''}
+            </h3>
+            <button
+              type="button"
+              onClick={() => {
+                setNotesView(true)
+                window.scrollTo(0, 0)
+              }}
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:text-terracotta-deep transition-colors"
+            >
+              <NoteIcon className="h-4 w-4" />
+              All notes{patternNotes.mineCount > 0 ? ` (${patternNotes.mineCount})` : ''}
+            </button>
+          </div>
+          {noteFor('pattern', { addLabel: 'Add a note about the whole pattern' })}
+          <p className="mt-3 text-xs text-foreground/45">
+            Add notes to any step, section, yarn, the needles or gauge — each is kept for the size
+            you&apos;re knitting.
+          </p>
+        </Card>
+
         {/* Info cards row */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
           {hasGauge && (
             <Card className="p-5">
-              <h3 className="text-sm font-semibold text-foreground/60 uppercase tracking-wide mb-3">Gauge</h3>
+              <h3 className="text-sm font-semibold text-foreground/60 uppercase tracking-wide">Gauge</h3>
+              <p className="text-xs text-foreground/45 mb-3">Pattern calls for</p>
               <div className="space-y-1">
                 {details!.gauge_stitches && (
                   <p className="text-foreground">{details!.gauge_stitches} sts</p>
@@ -721,12 +818,22 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
                   <p className="text-sm text-foreground/60 mt-1 italic">{details!.gauge_notes}</p>
                 )}
               </div>
+              {noteFor('gauge', {
+                className: 'mt-4 pt-4 border-t border-foreground/10',
+                usedHints: {
+                  stitches: details!.gauge_stitches,
+                  rows: details!.gauge_rows,
+                  needle: details!.gauge_needle_size,
+                  needleSizes: needleSizes,
+                },
+              })}
             </Card>
           )}
 
           {details?.needles && details.needles.length > 0 && (
             <Card className="p-5">
-              <h3 className="text-sm font-semibold text-foreground/60 uppercase tracking-wide mb-3">Needles</h3>
+              <h3 className="text-sm font-semibold text-foreground/60 uppercase tracking-wide">Needles</h3>
+              <p className="text-xs text-foreground/45 mb-3">Pattern calls for</p>
               <ul className="space-y-1">
                 {details.needles.map((needle, i) => (
                   <li key={i} className="text-sm text-foreground">
@@ -734,6 +841,10 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
                   </li>
                 ))}
               </ul>
+              {noteFor('needles', {
+                className: 'mt-4 pt-4 border-t border-foreground/10',
+                usedHints: { needleSizes },
+              })}
             </Card>
           )}
         </div>
@@ -741,25 +852,34 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
         {/* Materials */}
         {materials.length > 0 && (
           <Card className="p-6 mb-8">
-            <h2 className="text-lg font-semibold text-foreground mb-4">Materials</h2>
-            <div className="space-y-3">
+            <h2 className="text-lg font-semibold text-foreground">Materials</h2>
+            <p className="text-xs text-foreground/45 mb-4">
+              What the pattern calls for, and the yarn you used{selectedSize ? ` for size ${selectedSize}` : ''}
+            </p>
+            <div className="divide-y divide-foreground/10">
               {materials.map((mat) => (
-                <div key={mat.id} className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-                  {mat.color_name && (
-                    <span className="text-sm font-medium text-foreground/70">{mat.color_name}:</span>
-                  )}
-                  <span className="text-foreground">
-                    {[mat.yarn_brand, mat.yarn_name].filter(Boolean).join(' ') || 'Yarn'}
-                  </span>
-                  {mat.yarn_weight && (
-                    <Badge text={mat.yarn_weight} variant="secondary" />
-                  )}
-                  {mat.yardage_needed && (
-                    <span className="text-sm text-foreground/60">{mat.yardage_needed} yds</span>
-                  )}
-                  {mat.grams_needed && (
-                    <span className="text-sm text-foreground/60">{mat.grams_needed}g</span>
-                  )}
+                <div key={mat.id} className="py-4 first:pt-0 last:pb-0">
+                  <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                    {mat.color_name && (
+                      <span className="text-sm font-medium text-foreground/70">{mat.color_name}:</span>
+                    )}
+                    <span className="text-foreground">
+                      {[mat.yarn_brand, mat.yarn_name].filter(Boolean).join(' ') || 'Yarn'}
+                    </span>
+                    {mat.yarn_weight && (
+                      <Badge text={mat.yarn_weight} variant="secondary" />
+                    )}
+                    {mat.yardage_needed && (
+                      <span className="text-sm text-foreground/60">{mat.yardage_needed} yds</span>
+                    )}
+                    {mat.grams_needed && (
+                      <span className="text-sm text-foreground/60">{mat.grams_needed}g</span>
+                    )}
+                  </div>
+                  {noteFor(mat.id, {
+                    className: 'mt-3',
+                    usedHints: { yarn: [mat.yarn_brand, mat.yarn_name].filter(Boolean).join(' ') || null },
+                  })}
                 </div>
               ))}
             </div>
@@ -775,6 +895,7 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
                 <li key={i}>{notion}</li>
               ))}
             </ul>
+            {noteFor('notions', { className: 'mt-3' })}
           </Card>
         )}
 
@@ -871,6 +992,7 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
 
                   {isExpanded && (
                     <div className="px-5 pb-5 border-t border-foreground/10">
+                      {noteFor(section.id, { className: 'mt-4', addLabel: 'Add a note to this section' })}
                       {sectionType === 'written_instructions' && section.instructions.length > 0 && (
                         <div className="space-y-2 mt-4">
                           {section.instructions.map((instr) => (
@@ -920,6 +1042,7 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
                                     ))}
                                   </div>
                                 )}
+                                {noteFor(instr.id, { className: 'mt-2' })}
                               </div>
                             </div>
                           ))}
