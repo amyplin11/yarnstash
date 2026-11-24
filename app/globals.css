@@ -60,6 +60,22 @@ body {
 }
 
 /* Eyebrow labels: tracked-out small caps, usually preceded by a short rule. */
+/*
+ * Tailwind 4 dropped the pointer cursor from buttons (it now matches the
+ * browser default). Put it back for anything clickable, but not when disabled.
+ */
+@layer base {
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  summary,
+  label[for],
+  select:not(:disabled),
+  input[type='checkbox']:not(:disabled),
+  input[type='radio']:not(:disabled) {
+    cursor: pointer;
+  }
+}
+
 @utility eyebrow {
   font-size: 0.75rem;
   font-weight: 600;

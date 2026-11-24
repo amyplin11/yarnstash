@@ -142,7 +142,7 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
   }, [noteParts])
   const noteFor = (
     targetKey: string,
-    extra?: { className?: string; addLabel?: string; usedHints?: UsedHints }
+    extra?: { className?: string; addLabel?: string; addBlock?: boolean; usedHints?: UsedHints }
   ) => {
     const part = partsByTarget.get(targetKey)
     if (!part) return null
@@ -154,6 +154,7 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
         partLabel={part.label}
         className={extra?.className}
         addLabel={extra?.addLabel}
+        addBlock={extra?.addBlock}
         usedHints={extra?.usedHints}
       />
     )
@@ -674,7 +675,7 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
   // ─── Overview mode (default) ───
   return (
     <div className="min-h-screen bg-background">
-      <main className="container mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-12">
+      <main className="container mx-auto max-w-6xl px-4 sm:px-6 lg:px-8 py-12">
         {/* Back link */}
         <Link
           href="/patterns"
@@ -727,200 +728,218 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
           )}
         </div>
 
-        {/* Size picker */}
-        {details?.sizes && details.sizes.length > 0 && (
-          <Card className="p-5 mb-8">
-            <h3 className="text-sm font-semibold text-foreground/60 uppercase tracking-wide mb-3">
-              {selectedSize ? 'Your size' : 'Choose your size'}
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              {details.sizes.map((size) => (
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_20rem] lg:gap-8 lg:items-start">
+          {/* Notes: the whole-pattern note, and the way into every note. On wide
+              screens this is a right-hand column that stays in view while the
+              pattern scrolls; on narrow ones it sits above the content. */}
+          <aside className="mb-8 lg:order-last lg:sticky lg:top-8">
+            <Card className="p-5">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <h3 className="text-sm font-semibold text-foreground/60 uppercase tracking-wide">
+                  Your notes{selectedSize ? ` · Size ${selectedSize}` : ''}
+                </h3>
                 <button
-                  key={size}
                   type="button"
-                  disabled={extractedSize !== null}
                   onClick={() => {
-                    if (extractedSize !== null) return
-                    handleSizeSelect(selectedSize === size ? null : size)
+                    setNotesView(true)
+                    window.scrollTo(0, 0)
                   }}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    selectedSize === size
-                      ? 'bg-terracotta text-white'
-                      : extractedSize !== null
-                        ? 'bg-foreground/5 text-foreground/30 cursor-not-allowed'
-                        : 'bg-foreground/5 text-foreground/70 hover:bg-foreground/10'
-                  }`}
+                  className="inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:text-terracotta-deep transition-colors"
                 >
-                  {size}
+                  <NoteIcon className="h-4 w-4" />
+                  All notes{patternNotes.mineCount > 0 ? ` (${patternNotes.mineCount})` : ''}
                 </button>
-              ))}
-            </div>
-            {extractedSize ? (
-              <p className="text-xs text-foreground/50 mt-2">
-                This pattern was extracted for size {extractedSize}, so every instruction
-                already shows that size&apos;s values. Upload the PDF again and choose a
-                different size to follow one.
-              </p>
-            ) : selectedSize ? (
-              <p className="text-xs text-foreground/50 mt-2">
-                Instructions will show values for size {selectedSize}. Click again to deselect.
-              </p>
-            ) : null}
-          </Card>
-        )}
-
-        {/* Stitch counters */}
-        <StitchCounters patternId={id} />
-
-        {/* Notes: the whole-pattern note, and the way into every note */}
-        <Card className="p-5 mb-8">
-          <div className="flex items-center justify-between gap-3 mb-3">
-            <h3 className="text-sm font-semibold text-foreground/60 uppercase tracking-wide">
-              Your notes{selectedSize ? ` · Size ${selectedSize}` : ''}
-            </h3>
-            <button
-              type="button"
-              onClick={() => {
-                setNotesView(true)
-                window.scrollTo(0, 0)
-              }}
-              className="inline-flex items-center gap-1.5 text-sm font-medium text-terracotta hover:text-terracotta-deep transition-colors"
-            >
-              <NoteIcon className="h-4 w-4" />
-              All notes{patternNotes.mineCount > 0 ? ` (${patternNotes.mineCount})` : ''}
-            </button>
-          </div>
-          {noteFor('pattern', { addLabel: 'Add a note about the whole pattern' })}
-          <p className="mt-3 text-xs text-foreground/45">
-            Add notes to any step, section, yarn, the needles or gauge — each is kept for the size
-            you&apos;re knitting.
-          </p>
-        </Card>
-
-        {/* Info cards row */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-          {hasGauge && (
-            <Card className="p-5">
-              <h3 className="text-sm font-semibold text-foreground/60 uppercase tracking-wide">Gauge</h3>
-              <p className="text-xs text-foreground/45 mb-3">Pattern calls for</p>
-              <div className="space-y-1">
-                {details!.gauge_stitches && (
-                  <p className="text-foreground">{details!.gauge_stitches} sts</p>
-                )}
-                {details!.gauge_rows && (
-                  <p className="text-foreground">{details!.gauge_rows} rows</p>
-                )}
-                <p className="text-sm text-foreground/60">per 4 inches / 10 cm</p>
-                {details!.gauge_needle_size && (
-                  <p className="text-sm text-foreground/70 mt-1">{details!.gauge_needle_size}</p>
-                )}
-                {details!.gauge_notes && (
-                  <p className="text-sm text-foreground/60 mt-1 italic">{details!.gauge_notes}</p>
-                )}
               </div>
-              {noteFor('gauge', {
-                className: 'mt-4 pt-4 border-t border-foreground/10',
-                usedHints: {
-                  stitches: details!.gauge_stitches,
-                  rows: details!.gauge_rows,
-                  needle: details!.gauge_needle_size,
-                  needleSizes: needleSizes,
-                },
-              })}
+              {noteFor('pattern', { addLabel: 'Add a note about the whole pattern', addBlock: true })}
+              <p className="mt-3 text-xs text-foreground/45">
+                Add notes to any step, section, yarn, the needles or gauge — each is kept for the size
+                you&apos;re knitting.
+              </p>
             </Card>
-          )}
+          </aside>
 
-          {details?.needles && details.needles.length > 0 && (
-            <Card className="p-5">
-              <h3 className="text-sm font-semibold text-foreground/60 uppercase tracking-wide">Needles</h3>
-              <p className="text-xs text-foreground/45 mb-3">Pattern calls for</p>
-              <ul className="space-y-1">
-                {details.needles.map((needle, i) => (
-                  <li key={i} className="text-sm text-foreground">
-                    {needle.size} {needle.type}{needle.length ? ` — ${needle.length}` : ''}
-                  </li>
-                ))}
-              </ul>
-              {noteFor('needles', {
-                className: 'mt-4 pt-4 border-t border-foreground/10',
-                usedHints: { needleSizes },
-              })}
-            </Card>
-          )}
-        </div>
+          <div className="min-w-0">
+            {/* Size picker */}
+            {details?.sizes && details.sizes.length > 0 && (
+              <Card className="p-5 mb-8">
+                <h3 className="text-sm font-semibold text-foreground/60 uppercase tracking-wide mb-3">
+                  {selectedSize ? 'Your size' : 'Choose your size'}
+                </h3>
+                <div className="flex flex-wrap gap-2">
+                  {details.sizes.map((size) => (
+                    <button
+                      key={size}
+                      type="button"
+                      disabled={extractedSize !== null}
+                      onClick={() => {
+                        if (extractedSize !== null) return
+                        handleSizeSelect(selectedSize === size ? null : size)
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                        selectedSize === size
+                          ? 'bg-terracotta text-white'
+                          : extractedSize !== null
+                            ? 'bg-foreground/5 text-foreground/30 cursor-not-allowed'
+                            : 'bg-foreground/5 text-foreground/70 hover:bg-foreground/10'
+                      }`}
+                    >
+                      {size}
+                    </button>
+                  ))}
+                </div>
+                {extractedSize ? (
+                  <p className="text-xs text-foreground/50 mt-2">
+                    This pattern was extracted for size {extractedSize}, so every instruction
+                    already shows that size&apos;s values. Upload the PDF again and choose a
+                    different size to follow one.
+                  </p>
+                ) : selectedSize ? (
+                  <p className="text-xs text-foreground/50 mt-2">
+                    Instructions will show values for size {selectedSize}. Click again to deselect.
+                  </p>
+                ) : null}
+              </Card>
+            )}
 
-        {/* Materials */}
-        {materials.length > 0 && (
-          <Card className="p-6 mb-8">
-            <h2 className="text-lg font-semibold text-foreground">Materials</h2>
-            <p className="text-xs text-foreground/45 mb-4">
-              What the pattern calls for, and the yarn you used{selectedSize ? ` for size ${selectedSize}` : ''}
-            </p>
-            <div className="divide-y divide-foreground/10">
-              {materials.map((mat) => (
-                <div key={mat.id} className="py-4 first:pt-0 last:pb-0">
-                  <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-                    {mat.color_name && (
-                      <span className="text-sm font-medium text-foreground/70">{mat.color_name}:</span>
+            {/* Stitch counters */}
+            <StitchCounters patternId={id} />
+
+            {/* Info cards row */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+              {hasGauge && (
+                <Card className="p-5">
+                  <h3 className="text-sm font-semibold text-foreground/60 uppercase tracking-wide">Gauge</h3>
+                  <p className="text-xs text-foreground/45 mb-3">Pattern calls for</p>
+                  <div className="space-y-1">
+                    {details!.gauge_stitches && (
+                      <p className="text-foreground">{details!.gauge_stitches} sts</p>
                     )}
-                    <span className="text-foreground">
-                      {[mat.yarn_brand, mat.yarn_name].filter(Boolean).join(' ') || 'Yarn'}
-                    </span>
-                    {mat.yarn_weight && (
-                      <Badge text={mat.yarn_weight} variant="secondary" />
+                    {details!.gauge_rows && (
+                      <p className="text-foreground">{details!.gauge_rows} rows</p>
                     )}
-                    {mat.yardage_needed && (
-                      <span className="text-sm text-foreground/60">{mat.yardage_needed} yds</span>
+                    <p className="text-sm text-foreground/60">per 4 inches / 10 cm</p>
+                    {details!.gauge_needle_size && (
+                      <p className="text-sm text-foreground/70 mt-1">{details!.gauge_needle_size}</p>
                     )}
-                    {mat.grams_needed && (
-                      <span className="text-sm text-foreground/60">{mat.grams_needed}g</span>
+                    {details!.gauge_notes && (
+                      <p className="text-sm text-foreground/60 mt-1 italic">{details!.gauge_notes}</p>
                     )}
                   </div>
-                  {noteFor(mat.id, {
-                    className: 'mt-3',
-                    usedHints: { yarn: [mat.yarn_brand, mat.yarn_name].filter(Boolean).join(' ') || null },
+                  {noteFor('gauge', {
+                    className: 'mt-4 pt-4 border-t border-foreground/10',
+                    usedHints: {
+                      stitches: details!.gauge_stitches,
+                      rows: details!.gauge_rows,
+                      needle: details!.gauge_needle_size,
+                      needleSizes: needleSizes,
+                    },
                   })}
-                </div>
-              ))}
+                </Card>
+              )}
+
+              {details?.needles && details.needles.length > 0 && (
+                <Card className="p-5">
+                  <h3 className="text-sm font-semibold text-foreground/60 uppercase tracking-wide">Needles</h3>
+                  <p className="text-xs text-foreground/45 mb-3">Pattern calls for</p>
+                  <ul className="space-y-1">
+                    {details.needles.map((needle, i) => (
+                      <li key={i} className="text-sm text-foreground">
+                        {needle.size} {needle.type}{needle.length ? ` — ${needle.length}` : ''}
+                      </li>
+                    ))}
+                  </ul>
+                  {noteFor('needles', {
+                    className: 'mt-4 pt-4 border-t border-foreground/10',
+                    usedHints: { needleSizes },
+                  })}
+                </Card>
+              )}
             </div>
-          </Card>
-        )}
 
-        {/* Notions */}
-        {details?.notions && details.notions.length > 0 && (
-          <Card className="p-6 mb-8">
-            <h2 className="text-lg font-semibold text-foreground mb-3">Notions</h2>
-            <ul className="list-disc list-inside text-sm text-foreground/80 space-y-1">
-              {details.notions.map((notion, i) => (
-                <li key={i}>{notion}</li>
-              ))}
-            </ul>
-            {noteFor('notions', { className: 'mt-3' })}
-          </Card>
-        )}
-
-        {/* Empty sections warning */}
-        {sections.length === 0 && (
-          <Card className="p-6 mb-8 border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/10">
-            <div className="flex items-start gap-3">
-              <svg className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
-              </svg>
-              <div>
-                <h3 className="font-semibold text-amber-800 dark:text-amber-200">No pattern instructions found</h3>
-                <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
-                  The extraction did not capture any step-by-step instructions from this PDF. This can happen if the pattern is very long and the response was truncated. You can try deleting this pattern and re-uploading.
+            {/* Materials */}
+            {materials.length > 0 && (
+              <Card className="p-6 mb-8">
+                <h2 className="text-lg font-semibold text-foreground">Materials</h2>
+                <p className="text-xs text-foreground/45 mb-4">
+                  What the pattern calls for, and the yarn you used{selectedSize ? ` for size ${selectedSize}` : ''}
                 </p>
-              </div>
-            </div>
-          </Card>
-        )}
+                <div className="divide-y divide-foreground/10">
+                  {materials.map((mat) => (
+                    <div key={mat.id} className="py-4 first:pt-0 last:pb-0">
+                      <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                        {mat.color_name && (
+                          <span className="text-sm font-medium text-foreground/70">{mat.color_name}:</span>
+                        )}
+                        <span className="text-foreground">
+                          {[mat.yarn_brand, mat.yarn_name].filter(Boolean).join(' ') || 'Yarn'}
+                        </span>
+                        {mat.yarn_weight && (
+                          <Badge text={mat.yarn_weight} variant="secondary" />
+                        )}
+                        {mat.yardage_needed && (
+                          <span className="text-sm text-foreground/60">{mat.yardage_needed} yds</span>
+                        )}
+                        {mat.grams_needed && (
+                          <span className="text-sm text-foreground/60">{mat.grams_needed}g</span>
+                        )}
+                      </div>
+                      {noteFor(mat.id, {
+                        className: 'mt-3',
+                        usedHints: { yarn: [mat.yarn_brand, mat.yarn_name].filter(Boolean).join(' ') || null },
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            )}
 
+            {/* Notions */}
+            {details?.notions && details.notions.length > 0 && (
+              <Card className="p-6 mb-8">
+                <h2 className="text-lg font-semibold text-foreground mb-3">Notions</h2>
+                <ul className="list-disc list-inside text-sm text-foreground/80 space-y-1">
+                  {details.notions.map((notion, i) => (
+                    <li key={i}>{notion}</li>
+                  ))}
+                </ul>
+                {noteFor('notions', { className: 'mt-3' })}
+              </Card>
+            )}
+
+            {/* Empty sections warning */}
+            {sections.length === 0 && (
+              <Card className="p-6 mb-8 border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/10">
+                <div className="flex items-start gap-3">
+                  <svg className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                  <div>
+                    <h3 className="font-semibold text-amber-800 dark:text-amber-200">No pattern instructions found</h3>
+                    <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                      The extraction did not capture any step-by-step instructions from this PDF. This can happen if the pattern is very long and the response was truncated. You can try deleting this pattern and re-uploading.
+                    </p>
+                  </div>
+                </div>
+              </Card>
+            )}
+          </div>
+        </div>
+
+        {/* The two-column area ends here, so the notes panel stops sticking
+            once the instructions start; they get the full width. */}
         {/* Sections / Instructions */}
         {sections.length > 0 && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between mb-2">
-              <h2 className="text-lg font-semibold text-foreground">Pattern Instructions</h2>
+          <section
+            aria-labelledby="pattern-instructions-heading"
+            className="rounded-3xl bg-sage-soft/70 p-4 sm:p-6 space-y-3"
+          >
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-sage-deep">The pattern</p>
+                <h2 id="pattern-instructions-heading" className="font-display text-2xl tracking-tight text-ink">
+                  Pattern Instructions
+                </h2>
+              </div>
               {flatSteps.length > 0 && (
                 <Button variant="primary" onClick={enterFollowMode}>
                   {/* Starting step-by-step is what makes this a project, on the
@@ -958,6 +977,35 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
                     </svg>
                   </div>
                 </Card>
+              )
+            })()}
+
+            {sections.length > 1 && (() => {
+              // One toggle: expands everything until all sections are open,
+              // then collapses them all.
+              const allOpen = sections.every((s) => expandedSections.has(s.id))
+              return (
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs text-foreground/50">{sections.length} sections</p>
+                  <button
+                    type="button"
+                    aria-pressed={allOpen}
+                    onClick={() =>
+                      setExpandedSections(allOpen ? new Set() : new Set(sections.map((s) => s.id)))
+                    }
+                    className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-sage-deep hover:bg-sage/15 transition-colors"
+                  >
+                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d={allOpen ? 'M16 5l-4 4-4-4m8 14l-4-4-4 4' : 'M8 9l4-4 4 4m0 6l-4 4-4-4'}
+                      />
+                    </svg>
+                    {allOpen ? 'Collapse all' : 'Expand all'}
+                  </button>
+                </div>
               )
             })()}
 
@@ -1100,7 +1148,7 @@ function PatternDetailPageInner({ params }: { params: Promise<{ id: string }> })
                 </Card>
               )
             })}
-          </div>
+          </section>
         )}
 
         {/* PDF link */}

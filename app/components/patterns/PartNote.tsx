@@ -16,6 +16,8 @@ interface PartNoteProps {
   showOthers?: boolean
   /** Words on the add button; "Add note" by default. */
   addLabel?: string
+  /** Stretch the add button across its container instead of sizing to its label. */
+  addBlock?: boolean
   /** Gauge, needles and yarn: the pattern's values, shown in the "what I used" form. */
   usedHints?: UsedHints
   className?: string
@@ -59,6 +61,7 @@ function FreeTextNote({
   partLabel,
   showOthers = true,
   addLabel = 'Add note',
+  addBlock = false,
   className = '',
 }: PartNoteProps) {
   const mine = notes.mine(partKey)
@@ -117,7 +120,7 @@ function FreeTextNote({
         <button
           type="button"
           onClick={() => setEditing(true)}
-          className="inline-flex items-center gap-1 text-xs text-foreground/45 hover:text-terracotta transition-colors"
+          className={`${addBlock ? 'flex w-full justify-center' : 'inline-flex'} items-center gap-1.5 rounded-lg bg-terracotta-soft px-3 py-1.5 text-xs font-medium text-terracotta-deep hover:bg-terracotta/20 active:bg-terracotta/25 transition-colors`}
         >
           <NoteIcon className="h-3.5 w-3.5" />
           {addLabel}
