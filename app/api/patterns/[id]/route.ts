@@ -122,12 +122,6 @@ export async function DELETE(
       return NextResponse.json({ error: 'Pattern not found' }, { status: 404 })
     }
 
-    // Delete the PDF from storage if it exists
-    const storagePath = storagePathForPattern(pattern)
-    if (storagePath) {
-      await supabase.storage.from('pattern-pdfs').remove([storagePath])
-    }
-
     // Delete the pattern (cascades to details, materials, sections, instructions, glossary)
     const { error: deleteError } = await supabase
       .from('patterns')
@@ -138,6 +132,26 @@ export async function DELETE(
     if (deleteError) {
       console.error('Error deleting pattern:', deleteError)
       return NextResponse.json({ error: 'Failed to delete pattern' }, { status: 500 })
+    }
+
+    // Then the PDF. Row first: if this step fails the cost is an orphaned file,
+    // whereas removing the PDF first and then failing the row delete would
+    // leave a pattern whose "View PDF" link is dead.
+    //
+    // Runs on the caller's client, so the owner-folder DELETE policy on
+    // storage.objects applies. RLS doesn't raise on a blocked delete, it just
+    // removes nothing, so an empty result is the failure signal to log.
+    const storagePath = storagePathForPattern(pattern)
+    if (storagePath) {
+      const { data: removed, error: removeError } = await supabase.storage
+        .from('pattern-pdfs')
+        .remove([storagePath])
+      if (removeError || !removed?.length) {
+        console.error(
+          `Pattern ${id} deleted but its PDF was not removed from storage:`,
+          removeError ?? 'no object removed'
+        )
+      }
     }
 
     return NextResponse.json({ success: true })
